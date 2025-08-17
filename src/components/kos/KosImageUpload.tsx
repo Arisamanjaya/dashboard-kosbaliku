@@ -1,5 +1,4 @@
 'use client';
-'use client';
 import React, { useState, useRef } from 'react';
 import { KosService } from '@/lib/kosService';
 import { useAuth } from '@/context/AuthContext';
@@ -19,6 +18,7 @@ export default function KosImageUpload({
 }: KosImageUploadProps) {
   const { user } = useAuth();
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,17 +85,25 @@ export default function KosImageUpload({
       return;
     }
 
+    setDeleting(imageId);
+
     try {
+      console.log('🗑️ Deleting image:', imageId, imageUrl);
       const { success, error } = await KosService.deleteKosImage(imageId, imageUrl);
       
       if (error) {
+        console.error('❌ Delete error:', error);
         alert(`Error deleting image: ${error}`);
-      } else {
+      } else if (success) {
+        console.log('✅ Image deleted successfully');
         alert('Gambar berhasil dihapus!');
         onImagesUpdated?.();
       }
     } catch (err: any) {
+      console.error('💥 Delete exception:', err);
       alert(`Error: ${err.message}`);
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -130,7 +138,7 @@ export default function KosImageUpload({
         
         <div className="space-y-2">
           <svg className="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
           </svg>
           
           <div>
@@ -140,6 +148,7 @@ export default function KosImageUpload({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="text-blue-600 hover:text-blue-700 font-medium"
+                disabled={uploading}
               >
                 browse files
               </button>
@@ -177,20 +186,43 @@ export default function KosImageUpload({
                 {/* Delete Button */}
                 <button
                   onClick={() => handleDeleteImage(image.id, image.url_foto)}
-                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={deleting === image.id}
+                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 disabled:opacity-50"
+                  title="Hapus gambar"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  {deleting === image.id ? (
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
                 </button>
                 
                 {/* Image Index */}
                 <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
                   {index + 1}
                 </div>
+
+                {/* Deleting Overlay */}
+                {deleting === image.id && (
+                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                    <div className="text-white text-sm">Menghapus...</div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {existingImages.length === 0 && !uploading && (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+          </svg>
+          <p>Belum ada gambar. Upload gambar pertama!</p>
         </div>
       )}
     </div>

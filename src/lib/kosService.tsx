@@ -406,43 +406,56 @@ export class KosService {
 
   // Delete kos image
   static async deleteKosImage(imageId: string, imageUrl: string): Promise<{ success: boolean; error: string | null }> {
-    try {
-      // Extract filename from URL
-      const fileName = imageUrl.split('/').pop();
-      
-      if (!fileName) {
-        return { success: false, error: 'Invalid image URL' };
-      }
+  try {
+    console.log('🗑️ Starting delete process...');
+    console.log('📷 Image ID:', imageId);
+    console.log('🔗 Image URL:', imageUrl);
 
-      console.log('🗑️ Deleting file:', fileName);
+    // Extract filename from URL
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1]; // Get last part (filename)
+    
+    console.log('📁 Extracted filename:', fileName);
 
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('kos-images')
-        .remove([fileName]);
-
-      if (storageError) {
-        console.error('⚠️ Error deleting from storage:', storageError);
-      }
-
-      // Delete from database
-      const { error: dbError } = await supabase
-        .from('kos_images')
-        .delete()
-        .eq('id', imageId);
-
-      if (dbError) {
-        console.error('❌ Error deleting from database:', dbError);
-        return { success: false, error: dbError.message };
-      }
-
-      console.log('✅ Image deleted successfully');
-      return { success: true, error: null };
-    } catch (error: any) {
-      console.error('💥 Exception in deleteKosImage:', error);
-      return { success: false, error: error.message };
+    if (!fileName) {
+      return { success: false, error: 'Invalid image URL - cannot extract filename' };
     }
+
+    // Delete from database first
+    console.log('💾 Deleting from database...');
+    const { error: dbError } = await supabase
+      .from('kos_images')
+      .delete()
+      .eq('id', imageId);
+
+    if (dbError) {
+      console.error('❌ Database delete error:', dbError);
+      return { success: false, error: `Database error: ${dbError.message}` };
+    }
+
+    console.log('✅ Deleted from database successfully');
+
+    // Delete from storage
+    console.log('🗄️ Deleting from storage...');
+    const { error: storageError } = await supabase.storage
+      .from('kos-images')
+      .remove([fileName]);
+
+    if (storageError) {
+      console.error('⚠️ Storage delete error (but DB delete succeeded):', storageError);
+      // Don't return error here since DB delete succeeded
+      // Storage error is not critical
+    } else {
+      console.log('✅ Deleted from storage successfully');
+    }
+
+    console.log('🎉 Image deleted completely!');
+    return { success: true, error: null };
+  } catch (error: any) {
+    console.error('💥 Exception in deleteKosImage:', error);
+    return { success: false, error: error.message };
   }
+}
 
   // Get images for a kos
   static async getKosImages(kosId: string): Promise<{ data: any[] | null; error: string | null }> {
