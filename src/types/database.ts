@@ -1,0 +1,75 @@
+export interface User {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_password: string;
+  user_phone: string;
+  user_ig: string;
+  role: 'admin' | 'pemilik' | 'user';
+  created_at: string;
+}
+
+// Fix enum values to match database
+export type KosTipe = 'Putra' | 'Putri' | 'Campur';
+
+export interface Kos {
+  kos_id: string;
+  kos_nama: string;
+  kos_alamat: string;
+  kos_lokasi: string;
+  kos_lng?: number | null;
+  kos_lat?: number | null;
+  pemilik_id: string;
+  kos_tipe: KosTipe; // Use correct enum
+  kos_premium: boolean;
+  kos_rule: string;
+  kos_note: string;
+  kos_avail: boolean;
+  created_at: string;
+  status: 'active' | 'inactive' | 'pending';
+  // Relations
+  pemilik?: User;
+  fasilitas?: any[];
+  harga?: HargaKos[];
+  images?: KosImage[];
+}
+
+export interface KosFormData {
+  kos_nama: string;
+  kos_alamat: string;
+  kos_lokasi: string;
+  kos_lng?: number | null;
+  kos_lat?: number | null;
+  kos_tipe: KosTipe; // Use correct enum
+  kos_premium: boolean;
+  kos_rule: string;
+  kos_note: string;
+  kos_avail: boolean;
+  fasilitas_ids: string[];
+  harga: HargaKos[];
+}
+
+export interface HargaKos {
+  harga_id?: string;
+  kos_id?: string;
+  tipe_durasi: 'Mingguan' | 'Bulanan' | 'Tahunan';
+  harga: number;
+}
+
+export interface Fasilitas {
+  fasilitas_id: string;
+  fasilitas_nama: string;
+  fasilitas_tipe: 'umum' | 'kamar' | 'tambahan';
+}
+
+export interface KosImage {
+  id: string;
+  kos_id: string;
+  url_foto: string;
+}
+
+export interface KosFasilitas {
+  id: string;
+  kos_id: string;
+  fasilitas_id: string;
+}
