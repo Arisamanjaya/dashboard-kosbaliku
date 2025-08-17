@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useFasilitas } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
 import { Kos, KosFormData, HargaKos } from '@/types/database';
+import KosImageUpload from '@/components/kos/KosImageUpload';
 
 export default function EditKosPage() {
   const router = useRouter();
@@ -16,6 +17,9 @@ export default function EditKosPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  const [images, setImages] = useState<any[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(true);
 
   const kosId = params.id as string;
 
@@ -119,6 +123,28 @@ export default function EditKosPage() {
       harga: prev.harga.filter((_, i) => i !== index)
     }));
   };
+
+  // Add function to fetch images
+    const fetchImages = async () => {
+    setImagesLoading(true);
+    try {
+        const { data, error } = await KosService.getKosImages(kosId);
+        if (data) {
+        setImages(data);
+        }
+    } catch (err) {
+        console.error('Error fetching images:', err);
+    } finally {
+        setImagesLoading(false);
+    }
+};
+
+// Add useEffect to fetch images
+useEffect(() => {
+  if (kosId) {
+    fetchImages();
+  }
+}, [kosId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,6 +478,25 @@ export default function EditKosPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Upload Gambar */}
+        <div>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Gambar Kos
+        </h2>
+        {imagesLoading ? (
+            <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+        ) : (
+            <KosImageUpload
+            kosId={kosId}
+            existingImages={images}
+            onImagesUpdated={fetchImages}
+            maxImages={10}
+            />
+        )}
         </div>
 
         {/* Submit Button */}

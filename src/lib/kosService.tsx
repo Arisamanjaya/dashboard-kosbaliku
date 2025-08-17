@@ -336,40 +336,131 @@ export class KosService {
   }
 
   // Upload kos image
-  static async uploadKosImage(kosId: string, file: File): Promise<{ data: string | null; error: string | null }> {
+  static async uploadKosImages(kosId: string, files: File[], userId: string): Promise<{ data: string[] | null; error: string | null }> {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${kosId}/${Date.now()}.${fileExt}`;
+      console.log('📸 Uploading images for kos:', kosId);
+      console.log('👤 User ID:', userId);
+      
+      const uploadPromises = files.map(async (file, index) => {
+        const fileExt = file.name.split('.').pop();
+        // Simplified naming without user folder
+        const fileName = `${kosId}_${Date.now()}_${index}.${fileExt}`;
+        
+        console.log('📁 Uploading file:', fileName);
+        
+        const { data, error } = await supabase.storage
+          .from('kos-images')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('kos-images')
-        .upload(fileName, file);
+        if (error) {
+          console.error('❌ Error uploading file:', error);
+          throw error;
+        }
 
-      if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        return { data: null, error: uploadError.message };
-      }
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('kos-images')
+          .getPublicUrl(fileName);
 
-      const { data: urlData } = supabase.storage
-        .from('kos-images')
-        .getPublicUrl(fileName);
+        console.log('✅ File uploaded:', urlData.publicUrl);
+        return urlData.publicUrl;
+      });
 
-      // Insert image record
-      const { error: insertError } = await supabase
+      const uploadedUrls = await Promise.all(uploadPromises);
+      
+      // Save URLs to database
+      const imageData = uploadedUrls.map(url => ({
+        kos_id: kosId,
+        url_foto: url,
+      }));
+
+      console.log('💾 Saving to database:', imageData);
+
+      const { data: dbData, error: dbError } = await supabase
         .from('kos_images')
-        .insert([{
-          kos_id: kosId,
-          url_foto: urlData.publicUrl,
-        }]);
+        .insert(imageData)
+        .select();
 
-      if (insertError) {
-        console.error('Error inserting image record:', insertError);
-        return { data: null, error: insertError.message };
+      if (dbError) {
+        console.error('❌ Error saving image URLs to database:', dbError);
+        // Try to cleanup uploaded files
+        for (const url of uploadedUrls) {
+          const fileName = url.split('/').pop();
+          if (fileName) {
+            supabase.storage.from('kos-images').remove([fileName]);
+          }
+        }
+        return { data: null, error: dbError.message };
       }
 
-      return { data: urlData.publicUrl, error: null };
+      console.log('✅ Images saved to database:', dbData);
+      return { data: uploadedUrls, error: null };
     } catch (error: any) {
-      console.error('Exception in uploadKosImage:', error);
+      console.error('💥 Exception in uploadKosImages:', error);
+      return { data: null, error: error.message };
+    }
+  }
+
+  // Delete kos image
+  static async deleteKosImage(imageId: string, imageUrl: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+      // Extract filename from URL
+      const fileName = imageUrl.split('/').pop();
+      
+      if (!fileName) {
+        return { success: false, error: 'Invalid image URL' };
+      }
+
+      console.log('🗑️ Deleting file:', fileName);
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('kos-images')
+        .remove([fileName]);
+
+      if (storageError) {
+        console.error('⚠️ Error deleting from storage:', storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('kos_images')
+        .delete()
+        .eq('id', imageId);
+
+      if (dbError) {
+        console.error('❌ Error deleting from database:', dbError);
+        return { success: false, error: dbError.message };
+      }
+
+      console.log('✅ Image deleted successfully');
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error('💥 Exception in deleteKosImage:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get images for a kos
+  static async getKosImages(kosId: string): Promise<{ data: any[] | null; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('kos_images')
+        .select('*')
+        .eq('kos_id', kosId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error fetching kos images:', error);
+        return { data: null, error: error.message };
+      }
+
+      return { data: data || [], error: null };
+    } catch (error: any) {
+      console.error('💥 Exception in getKosImages:', error);
       return { data: null, error: error.message };
     }
   }

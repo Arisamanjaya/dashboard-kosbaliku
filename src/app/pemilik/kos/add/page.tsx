@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useFasilitas } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
 import { KosFormData, HargaKos } from '@/types/database';
+import  KosImageUpload  from '@/components/kos/KosImageUpload';
 
 export default function AddKosPage() {
   const router = useRouter();
@@ -417,6 +418,21 @@ export default function AddKosPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Upload Gambar - ADD THIS SECTION */}
+        <div>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Upload Gambar Kos
+        </h2>
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Upload gambar setelah kos berhasil dibuat. Anda dapat menambahkan hingga 10 gambar.
+            </p>
+            <div className="text-sm text-blue-600 dark:text-blue-400">
+            💡 Tip: Simpan kos terlebih dahulu, kemudian upload gambar di halaman edit.
+            </div>
+        </div>
         </div>
 
         {/* Submit Button */}
