@@ -738,3 +738,50 @@ span.flatpickr-weekday,
   opacity: 0.8;
   cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+/* Add these menu styles */
+.menu-item {
+  @apply flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out;
+}
+
+.menu-item-active {
+  @apply bg-blue-600 text-white shadow-lg;
+}
+
+.menu-item-inactive {
+  @apply text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white;
+}
+
+.menu-item-icon-active {
+  @apply text-white mr-3;
+}
+
+.menu-item-icon-inactive {
+  @apply text-gray-500 dark:text-gray-400 mr-3 group-hover:text-gray-700 dark:group-hover:text-gray-300;
+}
+
+.menu-item-text {
+  @apply text-sm font-medium;
+}
+
+.menu-dropdown-item {
+  @apply flex items-center w-full px-4 py-2 text-sm rounded-md transition-colors duration-200;
+}
+
+.menu-dropdown-item-active {
+  @apply bg-blue-500 text-white;
+}
+
+.menu-dropdown-item-inactive {
+  @apply text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white;
+}
+
+/* Scrollbar hiding */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
