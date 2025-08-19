@@ -5,7 +5,6 @@ import { useAuth } from '@/context/AuthContext';
 import { useFasilitas } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
 import { KosFormData, HargaKos } from '@/types/database';
-import  KosImageUpload  from '@/components/kos/KosImageUpload';
 
 export default function AddKosPage() {
   const router = useRouter();
@@ -14,6 +13,7 @@ export default function AddKosPage() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedImages, setSelectedImages] = useState<File[]>([]); // Store selected images
 
   const [formData, setFormData] = useState<KosFormData>({
     kos_nama: '',
@@ -21,7 +21,7 @@ export default function AddKosPage() {
     kos_lokasi: '',
     kos_lng: undefined,
     kos_lat: undefined,
-    kos_tipe: 'Campur', // Use correct enum value with capital
+    kos_tipe: 'Campur',
     kos_premium: false,
     kos_rule: '',
     kos_note: '',
@@ -31,6 +31,17 @@ export default function AddKosPage() {
       { harga_id: '', kos_id: '', tipe_durasi: 'Bulanan', harga: 0 }
     ],
   });
+
+  // Format number to Indonesian currency display
+  const formatCurrency = (value: number): string => {
+    if (!value) return '';
+    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  // Parse currency display back to number
+  const parseCurrency = (value: string): number => {
+    return parseInt(value.replace(/\./g, '')) || 0;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -63,6 +74,12 @@ export default function AddKosPage() {
     }));
   };
 
+  // Handle currency input for price
+  const handleHargaCurrencyChange = (index: number, displayValue: string) => {
+    const numericValue = parseCurrency(displayValue);
+    handleHargaChange(index, 'harga', numericValue);
+  };
+
   const addHargaRow = () => {
     setFormData(prev => ({
       ...prev,
@@ -75,6 +92,56 @@ export default function AddKosPage() {
       ...prev,
       harga: prev.harga.filter((_, i) => i !== index)
     }));
+  };
+
+  // Handle image selection
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      
+      // Validate file types
+      const validFiles = files.filter(file => file.type.startsWith('image/'));
+      
+      if (validFiles.length !== files.length) {
+        alert('Hanya file gambar yang diperbolehkan');
+        return;
+      }
+
+      // Limit to 10 images
+      if (selectedImages.length + validFiles.length > 10) {
+        alert(`Maksimal 10 gambar. Anda sudah memilih ${selectedImages.length} gambar.`);
+        return;
+      }
+
+      setSelectedImages(prev => [...prev, ...validFiles]);
+    }
+  };
+
+  // Remove selected image
+  const removeSelectedImage = (index: number) => {
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Handle drop for drag & drop
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    
+    if (e.dataTransfer.files) {
+      const files = Array.from(e.dataTransfer.files);
+      const validFiles = files.filter(file => file.type.startsWith('image/'));
+      
+      if (validFiles.length !== files.length) {
+        alert('Hanya file gambar yang diperbolehkan');
+        return;
+      }
+
+      if (selectedImages.length + validFiles.length > 10) {
+        alert(`Maksimal 10 gambar. Anda sudah memilih ${selectedImages.length} gambar.`);
+        return;
+      }
+
+      setSelectedImages(prev => [...prev, ...validFiles]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,17 +180,42 @@ export default function AddKosPage() {
 
     try {
       console.log('🚀 Submitting kos data:', formData);
+      console.log('📸 With images:', selectedImages.length, 'files');
       
+      // Step 1: Create kos
       const { data, error } = await KosService.createKos(formData, user.user_id);
       
       if (error) {
         console.error('❌ Create error:', error);
         setError(error);
-      } else {
-        console.log('✅ Kos created:', data);
-        alert('Kos berhasil ditambahkan!');
-        router.push('/pemilik/kos');
+        return;
       }
+
+      console.log('✅ Kos created:', data);
+      
+      // Step 2: Upload images if any selected
+      if (selectedImages.length > 0 && data) {
+        console.log('📸 Uploading images...');
+        const { data: imageData, error: imageError } = await KosService.uploadKosImages(
+          data.kos_id, 
+          selectedImages, 
+          user.user_id
+        );
+        
+        if (imageError) {
+          console.error('⚠️ Image upload error:', imageError);
+          alert(`Kos berhasil dibuat, tapi ada error saat upload gambar: ${imageError}`);
+        } else {
+          console.log('✅ Images uploaded successfully');
+          alert('Kos dan gambar berhasil dibuat!');
+        }
+      } else {
+        alert('Kos berhasil dibuat!');
+      }
+      
+      // Redirect to kos list
+      router.push('/pemilik/kos');
+      
     } catch (err: any) {
       console.error('💥 Submit exception:', err);
       setError(err.message);
@@ -222,7 +314,7 @@ export default function AddKosPage() {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Kota/Lokasi *
+                Lokasi *
               </label>
               <input
                 type="text"
@@ -231,7 +323,7 @@ export default function AddKosPage() {
                 onChange={handleInputChange}
                 required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="Contoh: Bandung, Jawa Barat"
+                placeholder="Contoh: Denpasar, Jimbaran, Kuta, Canggu"
               />
             </div>
 
@@ -339,7 +431,7 @@ export default function AddKosPage() {
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing - WITH CURRENCY FORMAT */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Harga Sewa
@@ -357,13 +449,22 @@ export default function AddKosPage() {
                   <option value="Tahunan">Tahunan</option>
                 </select>
                 
-                <input
-                  type="number"
-                  value={harga.harga}
-                  onChange={(e) => handleHargaChange(index, 'harga', parseInt(e.target.value) || 0)}
-                  placeholder="Harga"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 sm:text-sm">Rp</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={formatCurrency(harga.harga)}
+                    onChange={(e) => {
+                      // Only allow numbers and dots
+                      const value = e.target.value.replace(/[^\d.]/g, '');
+                      handleHargaCurrencyChange(index, value);
+                    }}
+                    placeholder="0"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
                 
                 {formData.harga.length > 1 && (
                   <button
@@ -388,6 +489,87 @@ export default function AddKosPage() {
               Tambah Harga
             </button>
           </div>
+        </div>
+
+        {/* IMAGE UPLOAD SECTION - DIRECT UPLOAD */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Gambar Kos (Opsional)
+          </h2>
+          
+          {/* Upload Area */}
+          <div
+            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            
+            <div className="space-y-2">
+              <svg className="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+              </svg>
+              
+              <div>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Drag & drop gambar di sini, atau{' '}
+                  <label
+                    htmlFor="image-upload"
+                    className="text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
+                  >
+                    browse files
+                  </label>
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  PNG, JPG, JPEG up to 10MB each. Max 10 images.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Images Preview */}
+          {selectedImages.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Gambar Terpilih ({selectedImages.length}/10)
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {selectedImages.map((file, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    
+                    {/* Remove Button */}
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedImage(index)}
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                      title="Hapus gambar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    
+                    {/* File name */}
+                    <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Fasilitas */}
@@ -418,21 +600,6 @@ export default function AddKosPage() {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Upload Gambar - ADD THIS SECTION */}
-        <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Upload Gambar Kos
-        </h2>
-        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            Upload gambar setelah kos berhasil dibuat. Anda dapat menambahkan hingga 10 gambar.
-            </p>
-            <div className="text-sm text-blue-600 dark:text-blue-400">
-            💡 Tip: Simpan kos terlebih dahulu, kemudian upload gambar di halaman edit.
-            </div>
-        </div>
         </div>
 
         {/* Submit Button */}

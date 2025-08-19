@@ -38,6 +38,17 @@ export default function EditKosPage() {
     harga: [],
   });
 
+  // Format number to Indonesian currency display
+  const formatCurrency = (value: number): string => {
+    if (!value) return '';
+    return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  // Parse currency display back to number
+  const parseCurrency = (value: string): number => {
+    return parseInt(value.replace(/\./g, '')) || 0;
+  };
+
   useEffect(() => {
     if (kosId) {
       fetchKosDetail();
@@ -110,6 +121,12 @@ export default function EditKosPage() {
     }));
   };
 
+  // Handle currency input for price - SAME AS ADD PAGE
+  const handleHargaCurrencyChange = (index: number, displayValue: string) => {
+    const numericValue = parseCurrency(displayValue);
+    handleHargaChange(index, 'harga', numericValue);
+  };
+
   const addHargaRow = () => {
     setFormData(prev => ({
       ...prev,
@@ -125,32 +142,55 @@ export default function EditKosPage() {
   };
 
   // Add function to fetch images
-    const fetchImages = async () => {
+  const fetchImages = async () => {
     setImagesLoading(true);
     try {
-        const { data, error } = await KosService.getKosImages(kosId);
-        if (data) {
+      const { data, error } = await KosService.getKosImages(kosId);
+      if (data) {
         setImages(data);
-        }
+      }
     } catch (err) {
-        console.error('Error fetching images:', err);
+      console.error('Error fetching images:', err);
     } finally {
-        setImagesLoading(false);
+      setImagesLoading(false);
     }
-};
+  };
 
-// Add useEffect to fetch images
-useEffect(() => {
-  if (kosId) {
-    fetchImages();
-  }
-}, [kosId]);
+  // Add useEffect to fetch images
+  useEffect(() => {
+    if (kosId) {
+      fetchImages();
+    }
+  }, [kosId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user || !kos) {
       setError('Data tidak valid');
+      return;
+    }
+
+    // Validation - SAME AS ADD PAGE
+    if (!formData.kos_nama.trim()) {
+      setError('Nama kos harus diisi');
+      return;
+    }
+
+    if (!formData.kos_alamat.trim()) {
+      setError('Alamat kos harus diisi');
+      return;
+    }
+
+    if (!formData.kos_lokasi.trim()) {
+      setError('Lokasi kos harus diisi');
+      return;
+    }
+
+    // Validate harga
+    const validHarga = formData.harga.filter(h => h.harga > 0);
+    if (validHarga.length === 0) {
+      setError('Minimal satu harga harus diisi');
       return;
     }
 
@@ -164,7 +204,7 @@ useEffect(() => {
         setError(error);
       } else {
         alert('Kos berhasil diperbarui!');
-        router.push(`/pemilik/kos/${kosId}`);
+        router.push('/pemilik/kos');
       }
     } catch (err: any) {
       setError(err.message);
@@ -250,6 +290,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Masukkan nama kos"
               />
             </div>
             
@@ -257,18 +298,17 @@ useEffect(() => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Tipe Kos *
               </label>
-              // Di bagian select tipe kos, update options menjadi:
-                <select
-                    name="kos_tipe"
-                    value={formData.kos_tipe}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                    <option value="Putra">Putra</option>
-                    <option value="Putri">Putri</option>
-                    <option value="Campur">Campur</option>
-                </select>
+              <select
+                name="kos_tipe"
+                value={formData.kos_tipe}
+                onChange={handleInputChange}
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="Putra">Putra</option>
+                <option value="Putri">Putri</option>
+                <option value="Campur">Campur</option>
+              </select>
             </div>
             
             <div className="md:col-span-2">
@@ -282,12 +322,13 @@ useEffect(() => {
                 required
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Masukkan alamat lengkap kos"
               />
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Kota/Lokasi *
+                Lokasi *
               </label>
               <input
                 type="text"
@@ -296,6 +337,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 required
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Contoh: Denpasar, Jimbaran, Kuta, Canggu"
               />
             </div>
 
@@ -332,6 +374,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 step="any"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Contoh: -6.200000"
               />
             </div>
             
@@ -346,6 +389,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 step="any"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Contoh: 106.816666"
               />
             </div>
           </div>
@@ -367,6 +411,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Contoh: Jam malam 22:00, Tidak boleh membawa tamu menginap, dll."
               />
             </div>
             
@@ -380,6 +425,7 @@ useEffect(() => {
                 onChange={handleInputChange}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Catatan atau informasi tambahan tentang kos"
               />
             </div>
 
@@ -399,7 +445,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing - WITH CURRENCY FORMAT LIKE ADD PAGE */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Harga Sewa
@@ -417,13 +463,22 @@ useEffect(() => {
                   <option value="Tahunan">Tahunan</option>
                 </select>
                 
-                <input
-                  type="number"
-                  value={harga.harga}
-                  onChange={(e) => handleHargaChange(index, 'harga', parseInt(e.target.value) || 0)}
-                  placeholder="Harga"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
+                <div className="flex-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-500 sm:text-sm">Rp</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={formatCurrency(harga.harga)}
+                    onChange={(e) => {
+                      // Only allow numbers and dots
+                      const value = e.target.value.replace(/[^\d.]/g, '');
+                      handleHargaCurrencyChange(index, value);
+                    }}
+                    placeholder="0"
+                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
                 
                 {formData.harga.length > 1 && (
                   <button
@@ -482,21 +537,22 @@ useEffect(() => {
 
         {/* Upload Gambar */}
         <div>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Gambar Kos
-        </h2>
-        {imagesLoading ? (
+          </h2>
+          {imagesLoading ? (
             <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">Memuat gambar...</span>
             </div>
-        ) : (
+          ) : (
             <KosImageUpload
-            kosId={kosId}
-            existingImages={images}
-            onImagesUpdated={fetchImages}
-            maxImages={10}
+              kosId={kosId}
+              existingImages={images}
+              onImagesUpdated={fetchImages}
+              maxImages={10}
             />
-        )}
+          )}
         </div>
 
         {/* Submit Button */}
