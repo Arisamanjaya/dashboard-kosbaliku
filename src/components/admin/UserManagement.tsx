@@ -643,7 +643,7 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
               </button>
               <button
                 onClick={handleDeleteUser}
-                disabled={actionLoading || (selectedUser.kos_count && selectedUser.kos_count > 0)}
+                disabled={actionLoading || (selectedUser.kos_count !== undefined && selectedUser.kos_count > 0)}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
               >
                 {actionLoading ? 'Deleting...' : 'Delete User'}
