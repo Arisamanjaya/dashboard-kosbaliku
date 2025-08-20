@@ -1,95 +1,49 @@
-// filepath: /Users/arisamanjaya/Documents/Code/dashboard-kosbaliku/src/components/auth/LogoutButton.tsx
 'use client';
-import React, { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
-interface LogoutButtonProps {
-  variant?: 'button' | 'dropdown-item';
-  className?: string;
-  showConfirm?: boolean;
-}
-
-export default function LogoutButton({ 
-  variant = 'button', 
-  className = '',
-  showConfirm = true 
-}: LogoutButtonProps) {
-  const { signOut } = useAuth();
+export default function LogoutButton() {
+  const [isLoading, setIsLoading] = useState(false);
+  const { logout } = useAuth();
   const router = useRouter();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    if (showConfirm) {
-      const confirmed = window.confirm('Apakah Anda yakin ingin logout?');
-      if (!confirmed) return;
-    }
-
-    setIsLoggingOut(true);
-    
     try {
-      await signOut();
+      setIsLoading(true);
+      console.log('🚪 Starting logout process...');
       
-      // Redirect to login page
+      await logout();
+      
+      console.log('✅ Logout successful, redirecting to login...');
       router.push('/login');
-      
-      // Optional: Show success message
-      // You can replace this with toast notification
-      console.log('✅ Logout berhasil');
-      
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Logout error:', error);
-      alert('Terjadi kesalahan saat logout');
     } finally {
-      setIsLoggingOut(false);
+      setIsLoading(false);
     }
   };
-
-  if (variant === 'dropdown-item') {
-    return (
-      <button
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        className={`w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 ${className}`}
-      >
-        <div className="flex items-center">
-          {isLoggingOut ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-3"></div>
-              Logging out...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4 mr-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
-              Logout
-            </>
-          )}
-        </div>
-      </button>
-    );
-  }
 
   return (
     <button
       onClick={handleLogout}
-      disabled={isLoggingOut}
-      className={`inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${className}`}
+      disabled={isLoading}
+      className="flex items-center px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+      title="Logout"
     >
-      {isLoggingOut ? (
-        <>
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-          Logging out...
-        </>
+      {isLoading ? (
+        <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
       ) : (
-        <>
-          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Logout
-        </>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
       )}
+      <span className="ml-2 hidden sm:block">
+        {isLoading ? 'Logging out...' : 'Logout'}
+      </span>
     </button>
   );
 }

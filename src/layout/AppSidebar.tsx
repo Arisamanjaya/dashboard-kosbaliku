@@ -1,441 +1,249 @@
-"use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useSidebar } from "../context/SidebarContext";
-import { useAuth } from "@/context/AuthContext";
-import {
-  BoxCubeIcon,
-  CalenderIcon,
-  ChevronDownIcon,
-  GridIcon,
-  HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
-  TableIcon,
-  UserCircleIcon,
-} from "../icons/index";
+'use client';
+import React, { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+import { useSidebar } from '@/context/SidebarContext';
 
-type NavItem = {
-  name: string;
-  icon: React.ReactNode;
-  path?: string;
-  badge?: string;
-  subItems?: { name: string; path: string; badge?: string; badgeColor?: string }[];
-  roles?: string[];
-};
-
-// Pemilik Navigation Items - SESUAI PERMINTAAN (SIMPLE)
-const pemilikNavItems: NavItem[] = [
+const pemilikMenuItems = [
   {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/pemilik/dashboard",
-  },
-  {
+    name: 'Dashboard',
+    href: '/pemilik/dashboard',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
       </svg>
     ),
-    name: "Manajemen Kos",
-    subItems: [
-      { name: "Daftar Kos", path: "/pemilik/kos" },
-    ],
+  },
+  {
+    name: 'Kelola Kos',
+    href: '/pemilik/kos',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
   },
 ];
 
-// Admin Navigation Items
-const adminNavItems: NavItem[] = [
+const adminMenuItems = [
   {
-    icon: <GridIcon />,
-    name: "Admin Dashboard",
-    path: "/admin/dashboard",
+    name: 'Dashboard',
+    href: '/admin/dashboard',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
+      </svg>
+    ),
   },
   {
+    name: 'Kelola Kos',
+    href: '/admin/kos-status',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
-    name: "Status Kos",
-    path: "/admin/kos-status",
-    badge: "Active"
   },
   {
-    icon: <UserCircleIcon />,
-    name: "Manajemen User",
-    path: "/admin/users",
-    badge: "Active"
+    name: 'Kelola User',
+    href: '/admin/users',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+      </svg>
+    ),
   },
 ];
 
-// Settings items (empty for now)
-const settingsItems: NavItem[] = [];
-
-const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+export default function AppSidebar() {
   const { user } = useAuth();
+  const { 
+    isExpanded, 
+    isMobileOpen, 
+    toggleMobileSidebar, 
+    setActiveItem,
+    activeItem 
+  } = useSidebar();
   const pathname = usePathname();
 
-  // Get navigation items based on user role - FIXED: pakai 'role'
-  const getNavItems = () => {
-    if (user?.role === 'admin') {
-      return adminNavItems;
+  // Detect if mobile based on screen size
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    if (isMobileOpen && isMobile) {
+      toggleMobileSidebar();
     }
-    return pemilikNavItems;
-  };
-
-  const mainNavItems = getNavItems();
-
-  const renderMenuItems = (
-    navItems: NavItem[],
-    menuType: "main" | "settings"
-  ) => (
-    <ul className="flex flex-col gap-2">
-      {navItems.map((nav, index) => (
-        <li key={nav.name}>
-          {nav.subItems ? (
-            <button
-              onClick={() => handleSubmenuToggle(index, menuType)}
-              className={`menu-item group w-full text-left ${
-                openSubmenu?.type === menuType && openSubmenu?.index === index
-                  ? "menu-item-active"
-                  : "menu-item-inactive"
-              } cursor-pointer ${
-                !isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "lg:justify-start"
-              }`}
-            >
-              <span
-                className={` ${
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? "menu-item-icon-active"
-                    : "menu-item-icon-inactive"
-                }`}
-              >
-                {nav.icon}
-              </span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <>
-                  <span className={`menu-item-text flex-1`}>{nav.name}</span>
-                  {nav.badge && (
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full mr-2 ${getBadgeColor(nav.badge)}`}
-                    >
-                      {nav.badge}
-                    </span>
-                  )}
-                </>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200  ${
-                    openSubmenu?.type === menuType &&
-                    openSubmenu?.index === index
-                      ? "rotate-180 text-blue-500"
-                      : ""
-                  }`}
-                />
-              )}
-            </button>
-          ) : (
-            nav.path && (
-              <Link
-                href={nav.path}
-                className={`menu-item group ${
-                  isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                } ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "lg:justify-start"
-                }`}
-              >
-                <span
-                  className={`${
-                    isActive(nav.path)
-                      ? "menu-item-icon-active"
-                      : "menu-item-icon-inactive"
-                  }`}
-                >
-                  {nav.icon}
-                </span>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <>
-                    <span className={`menu-item-text flex-1`}>{nav.name}</span>
-                    {nav.badge && (
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${getBadgeColor(nav.badge)}`}
-                      >
-                        {nav.badge}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Link>
-            )
-          )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
-            <div
-              ref={(el) => {
-                subMenuRefs.current[`${menuType}-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{
-                height:
-                  openSubmenu?.type === menuType && openSubmenu?.index === index
-                    ? `${subMenuHeight[`${menuType}-${index}`]}px`
-                    : "0px",
-              }}
-            >
-              <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      href={subItem.path}
-                      className={`menu-dropdown-item ${
-                        isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
-                    >
-                      <span className="flex-1">{subItem.name}</span>
-                      {subItem.badge && (
-                        <span
-                          className={`ml-auto text-xs px-2 py-1 rounded-full ${getBadgeColor(subItem.badge)}`}
-                        >
-                          {subItem.badge}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-
-  // Helper function for badge colors
-  const getBadgeColor = (badge: string) => {
-    switch (badge) {
-      case 'Active':
-        return 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400';
-      case 'Admin':
-        return 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400';
-      case 'New':
-        return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'Soon':
-        return 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400';
-      default:
-        return 'bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400';
-    }
-  };
-
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "settings";
-    index: number;
-  } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
-
-  const isActive = useCallback((path: string) => {
-    if (path === pathname) return true;
-    // Check if current path starts with the nav path (for parent highlighting)
-    if (pathname.startsWith(path) && path !== '/') return true;
-    return false;
   }, [pathname]);
 
+  // Set active item based on current path
   useEffect(() => {
-    // Check if the current path matches any submenu item
-    let submenuMatched = false;
-    ["main", "settings"].forEach((menuType) => {
-      const items = menuType === "main" ? mainNavItems : settingsItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "settings",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
-        }
-      });
-    });
-
-    // If no submenu item matches, close the open submenu
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
+    const currentItem = [...pemilikMenuItems, ...adminMenuItems].find(item => 
+      pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/admin/dashboard' && item.href !== '/pemilik/dashboard')
+    );
+    if (currentItem) {
+      setActiveItem(currentItem.name);
     }
-  }, [pathname, isActive, mainNavItems]);
+  }, [pathname, setActiveItem]);
 
-  useEffect(() => {
-    // Set the height of the submenu items when the submenu is opened
-    if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
+  // Select menu based on actual user role
+  const menuItems = user?.role === 'admin' ? adminMenuItems : pemilikMenuItems;
+  
+  // Display role mapping (for UI display only)
+  const displayRole = user?.role === 'user' ? 'pemilik' : user?.role;
+  const displayPanel = user?.role === 'admin' ? 'Admin Panel' : 'Owner Panel';
+
+  const isActiveLink = (href: string) => {
+    if (href === '/admin/dashboard' || href === '/pemilik/dashboard') {
+      return pathname === href;
     }
-  }, [openSubmenu]);
-
-  const handleSubmenuToggle = (index: number, menuType: "main" | "settings") => {
-    setOpenSubmenu((prevOpenSubmenu) => {
-      if (
-        prevOpenSubmenu &&
-        prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
-      ) {
-        return null;
-      }
-      return { type: menuType, index };
-    });
+    return pathname.startsWith(href);
   };
 
-  return (
-    <aside
-      className={`fixed flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-40 border-r border-gray-200 
-        ${
-          isExpanded || isMobileOpen
-            ? "w-[290px]"
-            : isHovered
-            ? "w-[290px]"
-            : "w-[90px]"
-        }
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
-      onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Logo Section */}
-      <div
-        className={`py-6 flex items-center ${
-          !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
-        }`}
-      >
-        <Link href={user?.role === 'admin' ? '/admin/dashboard' : '/pemilik/dashboard'}>
-          {isExpanded || isHovered || isMobileOpen ? (
-            <div className="flex items-center space-x-3">
-              <Image
-                className="dark:hidden"
-                src="/images/logo/logo.svg"
-                alt="Kosbaliku"
-                width={120}
-                height={32}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/logo-dark.svg"
-                alt="Kosbaliku"
-                width={120}
-                height={32}
-              />
-            </div>
-          ) : (
-            <Image
-              src="/images/logo/logo-icon.svg"
-              alt="Kosbaliku"
-              width={32}
-              height={32}
-            />
-          )}
-        </Link>
-      </div>
+  // Determine sidebar visibility
+  const sidebarVisible = isMobile ? isMobileOpen : true;
+  const sidebarWidth = isMobile ? 'w-64' : (isExpanded ? 'w-64' : 'w-16');
 
-      {/* User Role Badge */}
-      {(isExpanded || isHovered || isMobileOpen) && (
-        <div className="mb-4 px-3">
-          <div className={`text-xs px-3 py-1 rounded-full text-center ${
-            user?.role === 'admin' 
-              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-          }`}>
-            {user?.role === 'admin' ? 'Administrator' : 'Pemilik Kos'}
-          </div>
-        </div>
+  return (
+    <>
+      {/* Mobile Backdrop */}
+      {isMobile && isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 transition-opacity"
+          onClick={toggleMobileSidebar}
+        />
       )}
 
-      {/* Navigation */}
-      <div className="flex flex-col flex-1 overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="flex-1">
-          <div className="flex flex-col gap-6">
-            {/* Main Menu */}
-            <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 font-semibold ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  user?.role === 'admin' ? "Admin Menu" : "Menu Utama"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(mainNavItems, "main")}
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed top-0 left-0 z-50 h-full ${sidebarWidth} bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out
+          ${sidebarVisible ? 'translate-x-0' : '-translate-x-full'}
+          ${!isMobile ? 'lg:translate-x-0' : ''}
+        `}
+      >
+        {/* Sidebar Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className={`flex items-center ${isExpanded || isMobile ? 'space-x-3' : 'justify-center'}`}>
+            <div className="flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-lg flex-shrink-0">
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+              </svg>
             </div>
-
-            {/* Settings & Others - REMOVED FOR NOW */}
-            {settingsItems.length > 0 && (
-              <div className="">
-                <h2
-                  className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 font-semibold ${
-                    !isExpanded && !isHovered
-                      ? "lg:justify-center"
-                      : "justify-start"
-                  }`}
-                >
-                  {isExpanded || isHovered || isMobileOpen ? (
-                    "Pengaturan"
-                  ) : (
-                    <HorizontaLDots />
-                  )}
-                </h2>
-                {renderMenuItems(settingsItems, "settings")}
+            
+            {(isExpanded || isMobile) && (
+              <div className="min-w-0">
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
+                  Kos Baliku
+                </h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400 capitalize truncate">
+                  {displayPanel}
+                </p>
               </div>
             )}
           </div>
-        </nav>
 
-        {/* Footer - User Info */}
-        {(isExpanded || isHovered || isMobileOpen) && user && (
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-            <div className="flex items-center space-x-3 px-3 py-2">
-              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-sm font-medium text-white">
-                  {user.user_name?.charAt(0).toUpperCase() || 'U'}
-                </span>
+          {/* Mobile Close Button */}
+          {isMobile && (
+            <button
+              onClick={toggleMobileSidebar}
+              className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* User Info */}
+        {(isExpanded || isMobile) && (
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full text-sm font-medium flex-shrink-0">
+                {user?.user_name?.charAt(0).toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                  {user.user_name}
+                  {user?.user_name || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                  {user.user_email}
+                <p className="text-xs text-gray-600 dark:text-gray-400 truncate capitalize">
+                  {displayRole || 'user'}
                 </p>
               </div>
             </div>
           </div>
         )}
-      </div>
-    </aside>
-  );
-};
 
-export default AppSidebar;
+        {/* Collapsed User Avatar */}
+        {!isExpanded && !isMobile && (
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-center">
+            <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-full text-sm font-medium">
+              {user?.user_name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+          </div>
+        )}
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
+          {menuItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`
+                group flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                ${isActiveLink(item.href)
+                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                }
+                ${!isExpanded && !isMobile ? 'justify-center' : 'space-x-3'}
+              `}
+              title={!isExpanded && !isMobile ? item.name : undefined}
+            >
+              <span 
+                className={`flex-shrink-0 ${
+                  isActiveLink(item.href) ? 'text-blue-600 dark:text-blue-400' : ''
+                }`}
+              >
+                {item.icon}
+              </span>
+              
+              {(isExpanded || isMobile) && (
+                <span className="truncate">{item.name}</span>
+              )}
+
+              {/* Active Indicator for Collapsed */}
+              {!isExpanded && !isMobile && isActiveLink(item.href) && (
+                <div className="absolute left-0 w-1 h-6 bg-blue-600 rounded-r-full"></div>
+              )}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Sidebar Footer */}
+        {(isExpanded || isMobile) && (
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              <p>© 2024 Kos Baliku</p>
+              <p>Dashboard v2.0</p>
+            </div>
+          </div>
+        )}
+      </aside>
+    </>
+  );
+}

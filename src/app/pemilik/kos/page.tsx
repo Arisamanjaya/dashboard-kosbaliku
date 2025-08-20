@@ -9,6 +9,7 @@ export default function PemilikKosPage() {
   const { user } = useAuth();
   const { kos, loading, error, refetch } = useKosByOwner(user?.user_id || '');
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState<string | null>(null);
 
   const handleDeleteKos = async (kosId: string, kosNama: string) => {
     if (!confirm(`Apakah Anda yakin ingin menghapus kos "${kosNama}"?`)) {
@@ -32,33 +33,37 @@ export default function PemilikKosPage() {
     }
   };
 
-  const handleToggleStatus = async (kosId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+  // NEW - Handle availability toggle (not status)
+  const handleToggleAvailability = async (kosId: string, currentAvailability: boolean) => {
+    setAvailabilityLoading(kosId);
     
     try {
-      const { success, error } = await KosService.updateKosStatus(kosId, newStatus);
+      const { success, error } = await KosService.updateKosAvailability(kosId, !currentAvailability);
       
       if (success) {
-        alert(`Status kos berhasil diubah menjadi ${newStatus}`);
+        alert(`Ketersediaan kos berhasil ${!currentAvailability ? 'diaktifkan' : 'dinonaktifkan'}`);
         refetch();
       } else {
         alert(`Error: ${error}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan saat mengubah status');
+      alert('Terjadi kesalahan saat mengubah ketersediaan');
+    } finally {
+      setAvailabilityLoading(null);
     }
   };
 
+  // UPDATED STATUS BADGE - Show both status and availability
   const getStatusBadge = (status: string) => {
     const styles = {
       active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      inactive: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+      rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
       pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     };
 
     const labels = {
       active: 'Aktif',
-      inactive: 'Tidak Aktif',
+      rejected: 'Ditolak',
       pending: 'Menunggu Review',
     };
 
@@ -69,24 +74,23 @@ export default function PemilikKosPage() {
     );
   };
 
-  const formatPrice = (harga: any[]) => {
-    if (!harga || harga.length === 0) return 'Harga belum diset';
-    
-    const bulanan = harga.find(h => h.tipe_durasi === 'bulanan');
-    if (bulanan) {
-      return `Rp ${bulanan.harga.toLocaleString('id-ID')}/bulan`;
-    }
-    
-    return `Rp ${harga[0].harga.toLocaleString('id-ID')}/${harga[0].tipe_durasi}`;
+  const getAvailabilityBadge = (isAvailable: boolean) => {
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+        isAvailable 
+          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+      }`}>
+        {isAvailable ? 'Tersedia' : 'Penuh'}
+      </span>
+    );
   };
 
-  if (!user) {
-    return <div>Loading...</div>;
-  }
+  // ...rest of the code remains the same...
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header - NO CHANGE */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -107,7 +111,7 @@ export default function PemilikKosPage() {
         </a>
       </div>
 
-      {/* Loading State */}
+      {/* Loading, Error, Empty states - NO CHANGE */}
       {loading && (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -115,14 +119,12 @@ export default function PemilikKosPage() {
         </div>
       )}
 
-      {/* Error State */}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           Error: {error}
         </div>
       )}
 
-      {/* Empty State */}
       {!loading && !error && kos.length === 0 && (
         <div className="text-center py-12">
           <svg className="w-24 h-24 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -146,7 +148,7 @@ export default function PemilikKosPage() {
         </div>
       )}
 
-      {/* Kos Grid */}
+      {/* UPDATED Kos Grid */}
       {!loading && !error && kos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {kos.map((kosItem) => (
@@ -162,24 +164,24 @@ export default function PemilikKosPage() {
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <svg className="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
                 )}
                 
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3">
+                {/* UPDATED - Show both status and availability badges */}
+                <div className="absolute top-3 right-3 space-y-1">
                   {getStatusBadge(kosItem.status)}
                 </div>
                 
-                {/* Premium Badge */}
-                {kosItem.kos_premium && (
-                  <div className="absolute top-3 left-3">
+                <div className="absolute top-3 left-3 space-y-1">
+                  {getAvailabilityBadge(kosItem.kos_avail)}
+                  {kosItem.kos_premium && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
                       Premium
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Content */}
@@ -202,11 +204,16 @@ export default function PemilikKosPage() {
                 </p>
 
                 <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
-                  <span>📍 {kosItem.kos_avail ? 'Tersedia' : 'Penuh'}</span>
                   <span>📅 {new Date(kosItem.created_at).toLocaleDateString('id-ID')}</span>
+                  {/* Show warning if rejected */}
+                  {kosItem.status === 'rejected' && (
+                    <span className="text-red-600 dark:text-red-400 text-xs">
+                      ⚠️ Edit untuk review ulang
+                    </span>
+                  )}
                 </div>
 
-                {/* Actions */}
+                {/* UPDATED Actions */}
                 <div className="flex items-center gap-2">
                   <a
                     href={`/pemilik/kos/${kosItem.kos_id}`}
@@ -220,16 +227,22 @@ export default function PemilikKosPage() {
                   >
                     Edit
                   </a>
-                  <button
-                    onClick={() => handleToggleStatus(kosItem.kos_id, kosItem.status)}
-                    className={`px-3 py-2 text-white text-sm rounded transition-colors ${
-                      kosItem.status === 'active' 
-                        ? 'bg-red-600 hover:bg-red-700' 
-                        : 'bg-green-600 hover:bg-green-700'
-                    }`}
-                  >
-                    {kosItem.status === 'active' ? 'Nonaktif' : 'Aktifkan'}
-                  </button>
+                  
+                  {/* UPDATED - Availability toggle instead of status toggle */}
+                  {kosItem.status === 'active' && (
+                    <button
+                      onClick={() => handleToggleAvailability(kosItem.kos_id, kosItem.kos_avail)}
+                      disabled={availabilityLoading === kosItem.kos_id}
+                      className={`px-3 py-2 text-white text-sm rounded transition-colors disabled:opacity-50 ${
+                        kosItem.kos_avail 
+                          ? 'bg-orange-600 hover:bg-orange-700' 
+                          : 'bg-green-600 hover:bg-green-700'
+                      }`}
+                    >
+                      {availabilityLoading === kosItem.kos_id ? '...' : (kosItem.kos_avail ? 'Set Penuh' : 'Set Tersedia')}
+                    </button>
+                  )}
+                  
                   <button
                     onClick={() => handleDeleteKos(kosItem.kos_id, kosItem.kos_nama)}
                     disabled={deleteLoading === kosItem.kos_id}
@@ -245,4 +258,15 @@ export default function PemilikKosPage() {
       )}
     </div>
   );
+
+  function formatPrice(harga: any[]) {
+    if (!harga || harga.length === 0) return 'Harga belum diset';
+    
+    const bulanan = harga.find(h => h.tipe_durasi === 'bulanan');
+    if (bulanan) {
+      return `Rp ${bulanan.harga.toLocaleString('id-ID')}/bulan`;
+    }
+    
+    return `Rp ${harga[0].harga.toLocaleString('id-ID')}/${harga[0].tipe_durasi}`;
+  }
 }

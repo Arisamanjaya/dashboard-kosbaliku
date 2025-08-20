@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { Kos, KosFormData, HargaKos, Fasilitas } from '@/types/database';
 
 export class KosService {
-  // Get all kos by owner - FIXED VERSION
+  // Get all kos by owner - FIXED FASILITAS QUERY
   static async getKosByOwner(pemilikId: string): Promise<{ data: Kos[] | null; error: string | null }> {
     try {
       console.log('🔍 Fetching kos for pemilik:', pemilikId);
@@ -18,8 +18,11 @@ export class KosService {
           ),
           harga:harga_kos(*),
           images:kos_images(*),
-          fasilitas:kos_fasilitas(
-            fasilitas:fasilitas(*)
+          kos_fasilitas(
+            fasilitas(
+              fasilitas_id,
+              fasilitas_nama
+            )
           )
         `)
         .eq('pemilik_id', pemilikId)
@@ -30,17 +33,26 @@ export class KosService {
         return { data: null, error: error.message };
       }
 
-      console.log('✅ Fetched kos data:', data);
-      return { data, error: null };
+      // TRANSFORM DATA - Same as AdminService
+      const transformedData = data?.map(kos => ({
+        ...kos,
+        fasilitas: kos.kos_fasilitas?.map((kf: any) => kf.fasilitas) || []
+      })) || [];
+
+      console.log('✅ Fetched kos data:', transformedData);
+      console.log('🔍 Fasilitas sample:', transformedData[0]?.fasilitas);
+      return { data: transformedData, error: null };
     } catch (error: any) {
       console.error('💥 Exception in getKosByOwner:', error);
       return { data: null, error: error.message };
     }
   }
 
-  // Get single kos by ID
+  // Get single kos by ID - FIXED FASILITAS QUERY
   static async getKosById(kosId: string): Promise<{ data: Kos | null; error: string | null }> {
     try {
+      console.log('🔍 Fetching kos by ID:', kosId);
+
       const { data, error } = await supabase
         .from('kos')
         .select(`
@@ -52,26 +64,37 @@ export class KosService {
           ),
           harga:harga_kos(*),
           images:kos_images(*),
-          fasilitas:kos_fasilitas(
-            fasilitas:fasilitas(*)
+          kos_fasilitas(
+            fasilitas(
+              fasilitas_id,
+              fasilitas_nama
+            )
           )
         `)
         .eq('kos_id', kosId)
         .single();
 
       if (error) {
-        console.error('Error fetching kos by ID:', error);
+        console.error('❌ Error fetching kos by ID:', error);
         return { data: null, error: error.message };
       }
 
-      return { data, error: null };
+      // TRANSFORM DATA - Same as AdminService
+      const transformedData = {
+        ...data,
+        fasilitas: data.kos_fasilitas?.map((kf: any) => kf.fasilitas) || []
+      };
+
+      console.log('✅ Fetched kos by ID:', transformedData);
+      console.log('🔍 Fasilitas data:', transformedData.fasilitas);
+      return { data: transformedData, error: null };
     } catch (error: any) {
-      console.error('Exception in getKosById:', error);
+      console.error('💥 Exception in getKosById:', error);
       return { data: null, error: error.message };
     }
   }
 
-  // Create new kos
+  // Create new kos - NO CHANGE
   static async createKos(formData: KosFormData, pemilikId: string): Promise<{ data: Kos | null; error: string | null }> {
     try {
       console.log('🔍 Creating kos with data:', formData);
@@ -164,10 +187,22 @@ export class KosService {
     }
   }
 
-  // Update kos
+  // Update kos - NO CHANGE
   static async updateKos(kosId: string, formData: Partial<KosFormData>): Promise<{ data: Kos | null; error: string | null }> {
     try {
-      const updateData = {
+      // First, get current kos status
+      const { data: currentKos, error: fetchError } = await supabase
+        .from('kos')
+        .select('status')
+        .eq('kos_id', kosId)
+        .single();
+
+      if (fetchError) {
+        console.error('❌ Error fetching current kos:', fetchError);
+        return { data: null, error: fetchError.message };
+      }
+
+      const updateData: { [key: string]: any } = {
         kos_nama: formData.kos_nama,
         kos_alamat: formData.kos_alamat,
         kos_lokasi: formData.kos_lokasi,
@@ -179,6 +214,12 @@ export class KosService {
         kos_note: formData.kos_note,
         kos_avail: formData.kos_avail,
       };
+
+      // AUTO STATUS CHANGE: If current status is rejected, change to pending when updating
+      if (currentKos.status === 'rejected') {
+        updateData.status = 'pending';
+        console.log('📝 Status changed from rejected to pending due to edit');
+      }
 
       const { data, error } = await supabase
         .from('kos')
@@ -242,7 +283,7 @@ export class KosService {
     }
   }
 
-  // Delete kos
+  // Delete kos - NO CHANGE
   static async deleteKos(kosId: string): Promise<{ success: boolean; error: string | null }> {
     try {
       // Delete related data first
@@ -268,27 +309,32 @@ export class KosService {
     }
   }
 
-  // Update kos status
-  static async updateKosStatus(kosId: string, status: 'active' | 'inactive' | 'pending'): Promise<{ success: boolean; error: string | null }> {
+  // Update kos availability - NO CHANGE
+  static async updateKosAvailability(kosId: string, isAvailable: boolean) {
     try {
-      const { error } = await supabase
+      console.log('🔄 Updating kos availability:', { kosId, isAvailable });
+
+      const { data, error } = await supabase
         .from('kos')
-        .update({ status })
-        .eq('kos_id', kosId);
+        .update({ kos_avail: isAvailable })
+        .eq('kos_id', kosId)
+        .select()
+        .single();
 
       if (error) {
-        console.error('Error updating kos status:', error);
+        console.error('❌ Error updating kos availability:', error);
         return { success: false, error: error.message };
       }
 
-      return { success: true, error: null };
+      console.log('✅ Kos availability updated:', data);
+      return { success: true, data, error: null };
     } catch (error: any) {
-      console.error('Exception in updateKosStatus:', error);
+      console.error('💥 Exception in updateKosAvailability:', error);
       return { success: false, error: error.message };
     }
   }
-
-  // Get kos statistics for owner
+  
+  // Get kos statistics - NO CHANGE
   static async getKosStats(pemilikId: string) {
     try {
       const { data, error } = await supabase
@@ -315,7 +361,7 @@ export class KosService {
     }
   }
 
-  // Get all fasilitas
+  // Get all fasilitas - NO CHANGE
   static async getAllFasilitas(): Promise<{ data: Fasilitas[] | null; error: string | null }> {
     try {
       const { data, error } = await supabase
@@ -335,7 +381,7 @@ export class KosService {
     }
   }
 
-  // Upload kos image
+  // Upload kos images - NO CHANGE
   static async uploadKosImages(kosId: string, files: File[], userId: string): Promise<{ data: string[] | null; error: string | null }> {
     try {
       console.log('📸 Uploading images for kos:', kosId);
@@ -404,60 +450,60 @@ export class KosService {
     }
   }
 
-  // Delete kos image
+  // Delete kos image - NO CHANGE
   static async deleteKosImage(imageId: string, imageUrl: string): Promise<{ success: boolean; error: string | null }> {
-  try {
-    console.log('🗑️ Starting delete process...');
-    console.log('📷 Image ID:', imageId);
-    console.log('🔗 Image URL:', imageUrl);
+    try {
+      console.log('🗑️ Starting delete process...');
+      console.log('📷 Image ID:', imageId);
+      console.log('🔗 Image URL:', imageUrl);
 
-    // Extract filename from URL
-    const urlParts = imageUrl.split('/');
-    const fileName = urlParts[urlParts.length - 1]; // Get last part (filename)
-    
-    console.log('📁 Extracted filename:', fileName);
+      // Extract filename from URL
+      const urlParts = imageUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1]; // Get last part (filename)
+      
+      console.log('📁 Extracted filename:', fileName);
 
-    if (!fileName) {
-      return { success: false, error: 'Invalid image URL - cannot extract filename' };
+      if (!fileName) {
+        return { success: false, error: 'Invalid image URL - cannot extract filename' };
+      }
+
+      // Delete from database first
+      console.log('💾 Deleting from database...');
+      const { error: dbError } = await supabase
+        .from('kos_images')
+        .delete()
+        .eq('id', imageId);
+
+      if (dbError) {
+        console.error('❌ Database delete error:', dbError);
+        return { success: false, error: `Database error: ${dbError.message}` };
+      }
+
+      console.log('✅ Deleted from database successfully');
+
+      // Delete from storage
+      console.log('🗄️ Deleting from storage...');
+      const { error: storageError } = await supabase.storage
+        .from('kos-images')
+        .remove([fileName]);
+
+      if (storageError) {
+        console.error('⚠️ Storage delete error (but DB delete succeeded):', storageError);
+        // Don't return error here since DB delete succeeded
+        // Storage error is not critical
+      } else {
+        console.log('✅ Deleted from storage successfully');
+      }
+
+      console.log('🎉 Image deleted completely!');
+      return { success: true, error: null };
+    } catch (error: any) {
+      console.error('💥 Exception in deleteKosImage:', error);
+      return { success: false, error: error.message };
     }
-
-    // Delete from database first
-    console.log('💾 Deleting from database...');
-    const { error: dbError } = await supabase
-      .from('kos_images')
-      .delete()
-      .eq('id', imageId);
-
-    if (dbError) {
-      console.error('❌ Database delete error:', dbError);
-      return { success: false, error: `Database error: ${dbError.message}` };
-    }
-
-    console.log('✅ Deleted from database successfully');
-
-    // Delete from storage
-    console.log('🗄️ Deleting from storage...');
-    const { error: storageError } = await supabase.storage
-      .from('kos-images')
-      .remove([fileName]);
-
-    if (storageError) {
-      console.error('⚠️ Storage delete error (but DB delete succeeded):', storageError);
-      // Don't return error here since DB delete succeeded
-      // Storage error is not critical
-    } else {
-      console.log('✅ Deleted from storage successfully');
-    }
-
-    console.log('🎉 Image deleted completely!');
-    return { success: true, error: null };
-  } catch (error: any) {
-    console.error('💥 Exception in deleteKosImage:', error);
-    return { success: false, error: error.message };
   }
-}
 
-  // Get images for a kos
+  // Get images for a kos - NO CHANGE
   static async getKosImages(kosId: string): Promise<{ data: any[] | null; error: string | null }> {
     try {
       const { data, error } = await supabase

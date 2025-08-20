@@ -1,19 +1,19 @@
-import React from 'react';
+'use client';
+import KosStatusManager from '@/components/admin/KosStatusManager';
 
-export default function AdminKosStatusPage() {
+export default function KosStatusPage() {
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          Kelola Status Kos
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Kos Status Management
         </h1>
-      </div>
-      
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <p className="text-gray-600 dark:text-gray-400">
-          Halaman untuk mengelola status kos akan dibuat di tahap selanjutnya.
+          Review and manage kos approval status
         </p>
       </div>
+      
+      <KosStatusManager />
     </div>
   );
 }

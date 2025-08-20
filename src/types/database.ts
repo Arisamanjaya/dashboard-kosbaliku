@@ -26,7 +26,7 @@ export interface Kos {
   kos_note: string;
   kos_avail: boolean;
   created_at: string;
-  status: 'active' | 'inactive' | 'pending';
+  status: 'active' | 'rejected' | 'pending';
   // Relations
   pemilik?: User;
   fasilitas?: any[];
@@ -34,12 +34,13 @@ export interface Kos {
   images?: KosImage[];
 }
 
+
 export interface KosFormData {
   kos_nama: string;
   kos_alamat: string;
   kos_lokasi: string;
-  kos_lng?: number | null;
-  kos_lat?: number | null;
+  kos_lng?: number;
+  kos_lat?: number;
   kos_tipe: KosTipe; // Use correct enum
   kos_premium: boolean;
   kos_rule: string;
@@ -47,6 +48,13 @@ export interface KosFormData {
   kos_avail: boolean;
   fasilitas_ids: string[];
   harga: HargaKos[];
+}
+
+// NEW - Location selection interface
+export interface LocationData {
+  lat: number;
+  lng: number;
+  address?: string;
 }
 
 export interface HargaKos {
@@ -59,7 +67,7 @@ export interface HargaKos {
 export interface Fasilitas {
   fasilitas_id: string;
   fasilitas_nama: string;
-  fasilitas_tipe: 'umum' | 'kamar' | 'tambahan';
+  fasilitas_tipe: 'Kamar' | 'Lingkungan';
 }
 
 export interface KosImage {

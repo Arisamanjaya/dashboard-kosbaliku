@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { KosService } from '@/lib/kosService';
 import { Kos } from '@/types/database';
+import MapDisplay from '@/components/maps/MapDisplay';
 
 export default function KosDetailPage() {
   const router = useRouter();
@@ -12,7 +13,7 @@ export default function KosDetailPage() {
   const [kos, setKos] = useState<Kos | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusLoading, setStatusLoading] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const kosId = params.id as string;
 
@@ -41,23 +42,29 @@ export default function KosDetailPage() {
     }
   };
 
-  const handleStatusChange = async (newStatus: 'active' | 'inactive' | 'pending') => {
+  // REMOVED handleStatusChange - Users can't change status anymore
+
+  // NEW - Handle availability toggle only
+  const handleAvailabilityChange = async () => {
     if (!kos) return;
 
-    setStatusLoading(true);
+    setAvailabilityLoading(true);
     try {
-      const { success, error } = await KosService.updateKosStatus(kos.kos_id, newStatus);
+      const { success, error } = await KosService.updateKosAvailability(
+        kos.kos_id, 
+        !kos.kos_avail
+      );
       
       if (success) {
-        setKos(prev => prev ? { ...prev, status: newStatus } : null);
-        alert(`Status berhasil diubah menjadi ${newStatus}`);
+        setKos(prev => prev ? { ...prev, kos_avail: !prev.kos_avail } : null);
+        alert(`Ketersediaan berhasil diubah menjadi ${!kos.kos_avail ? 'tersedia' : 'penuh'}`);
       } else {
         alert(`Error: ${error}`);
       }
     } catch (err) {
-      alert('Terjadi kesalahan saat mengubah status');
+      alert('Terjadi kesalahan saat mengubah ketersediaan');
     } finally {
-      setStatusLoading(false);
+      setAvailabilityLoading(false);
     }
   };
 
@@ -82,22 +89,36 @@ export default function KosDetailPage() {
     }
   };
 
+  // UPDATED - Better status display
   const getStatusBadge = (status: string) => {
     const styles = {
       active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
-      inactive: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+      rejected: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
       pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     };
 
     const labels = {
       active: 'Aktif',
-      inactive: 'Tidak Aktif',
+      rejected: 'Ditolak',
       pending: 'Menunggu Review',
     };
 
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${styles[status as keyof typeof styles]}`}>
         {labels[status as keyof typeof labels]}
+      </span>
+    );
+  };
+
+  // NEW - Availability badge
+  const getAvailabilityBadge = (isAvailable: boolean) => {
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+        isAvailable 
+          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+          : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+      }`}>
+        {isAvailable ? 'Tersedia' : 'Penuh'}
       </span>
     );
   };
@@ -168,6 +189,12 @@ export default function KosDetailPage() {
         </div>
         <div className="flex items-center gap-3">
           {getStatusBadge(kos.status)}
+          {getAvailabilityBadge(kos.kos_avail)}
+          {kos.kos_premium && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
+              Premium
+            </span>
+          )}
           <button
             onClick={() => router.back()}
             className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -179,6 +206,44 @@ export default function KosDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Warning for rejected kos */}
+      {kos.status === 'rejected' && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                Kos Ditolak
+              </h3>
+              <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                Kos ini ditolak oleh admin. Edit kos untuk mengajukan review ulang dan status akan otomatis berubah menjadi "Menunggu Review".
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning for pending kos */}
+      {kos.status === 'pending' && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-start">
+            <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                Menunggu Review
+              </h3>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                Kos ini sedang menunggu review dari admin. Harap tunggu proses persetujuan.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -229,9 +294,15 @@ export default function KosDetailPage() {
                 </p>
               </div>
               <div>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Status Approval</h3>
+                <p className="mt-1">
+                  {getStatusBadge(kos.status)}
+                </p>
+              </div>
+              <div>
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Ketersediaan</h3>
-                <p className="mt-1 text-gray-900 dark:text-white">
-                  {kos.kos_avail ? 'Tersedia' : 'Penuh'}
+                <p className="mt-1">
+                  {getAvailabilityBadge(kos.kos_avail)}
                 </p>
               </div>
               <div>
@@ -241,19 +312,6 @@ export default function KosDetailPage() {
                 </p>
               </div>
             </div>
-          </div>
-
-          {/* Address */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              Alamat
-            </h2>
-            <p className="text-gray-900 dark:text-white">{kos.kos_alamat}</p>
-            {(kos.kos_lat && kos.kos_lng) && (
-              <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
-                <p>Koordinat: {kos.kos_lat}, {kos.kos_lng}</p>
-              </div>
-            )}
           </div>
 
           {/* Rules */}
@@ -275,6 +333,101 @@ export default function KosDetailPage() {
               <p className="text-gray-900 dark:text-white whitespace-pre-line">{kos.kos_note}</p>
             </div>
           )}
+
+          {/* Facilities */}
+          {kos.fasilitas && kos.fasilitas.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Fasilitas ({kos.fasilitas.length})
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {kos.fasilitas.map((fasilitas, index) => (
+                  <div key={index} className="flex items-center space-x-2 py-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
+                    <span className="text-gray-700 dark:text-gray-300 text-sm">
+                      {fasilitas.fasilitas_nama}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Address - UPDATED WITH MAP */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Alamat & Lokasi
+            </h2>
+            
+            {/* Address Text */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Alamat Lengkap</h3>
+              <p className="text-gray-900 dark:text-white">{kos.kos_alamat}</p>
+            </div>
+
+            {/* Location Info */}
+            <div className="mb-4">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Lokasi</h3>
+              <p className="text-gray-900 dark:text-white">{kos.kos_lokasi}</p>
+            </div>
+
+            {/* Coordinates */}
+            {(kos.kos_lat && kos.kos_lng) ? (
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Koordinat</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Latitude: {kos.kos_lat} | Longitude: {kos.kos_lng}
+                </p>
+              </div>
+            ) : (
+              <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+                  ⚠️ Koordinat belum diset. Untuk pengalaman terbaik, silakan edit kos dan tambahkan lokasi di peta.
+                </p>
+              </div>
+            )}
+
+            {/* NEW - Map Display */}
+            {(kos.kos_lat && kos.kos_lng) && (
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Lokasi di Peta</h3>
+                <MapDisplay
+                  lat={kos.kos_lat}
+                  lng={kos.kos_lng}
+                  title={kos.kos_nama}
+                  height="300px"
+                  className="rounded-lg overflow-hidden"
+                />
+                
+                {/* Map Actions */}
+                <div className="mt-3 flex justify-center space-x-3">
+                  <a
+                    href={`https://www.google.com/maps?q=${kos.kos_lat},${kos.kos_lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Buka di Google Maps
+                  </a>
+                  
+                  <a
+                    href={`https://maps.google.com/maps?q=${kos.kos_lat},${kos.kos_lng}&navigate=yes`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    </svg>
+                    Arah ke Lokasi
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -302,7 +455,7 @@ export default function KosDetailPage() {
             )}
           </div>
 
-          {/* Fasilitas */}
+          {/* Fasilitas
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Fasilitas
@@ -323,9 +476,9 @@ export default function KosDetailPage() {
             ) : (
               <p className="text-gray-500 dark:text-gray-400">Belum ada fasilitas</p>
             )}
-          </div>
+          </div> */}
 
-          {/* Actions */}
+          {/* UPDATED Actions */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Aksi
@@ -341,40 +494,35 @@ export default function KosDetailPage() {
                 Edit Kos
               </a>
 
-              {/* Status Actions */}
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ubah Status:</p>
-                
-                {kos.status !== 'active' && (
+              {/* REPLACED Status Actions with Availability Toggle */}
+              {kos.status === 'active' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Ubah Ketersediaan:</p>
                   <button
-                    onClick={() => handleStatusChange('active')}
-                    disabled={statusLoading}
-                    className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                    onClick={handleAvailabilityChange}
+                    disabled={availabilityLoading}
+                    className={`w-full px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 ${
+                      kos.kos_avail 
+                        ? 'bg-orange-600 hover:bg-orange-700' 
+                        : 'bg-green-600 hover:bg-green-700'
+                    }`}
                   >
-                    Aktifkan
+                    {availabilityLoading ? 'Mengubah...' : (kos.kos_avail ? 'Set Penuh' : 'Set Tersedia')}
                   </button>
-                )}
-                
-                {kos.status !== 'inactive' && (
-                  <button
-                    onClick={() => handleStatusChange('inactive')}
-                    disabled={statusLoading}
-                    className="w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    Nonaktifkan
-                  </button>
-                )}
-                
-                {kos.status !== 'pending' && (
-                  <button
-                    onClick={() => handleStatusChange('pending')}
-                    disabled={statusLoading}
-                    className="w-full px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors disabled:opacity-50"
-                  >
-                    Set Pending
-                  </button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Info for non-active kos */}
+              {kos.status !== 'active' && (
+                <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {kos.status === 'pending' 
+                      ? 'Ketersediaan dapat diubah setelah kos disetujui admin'
+                      : 'Edit kos untuk mengajukan review ulang'
+                    }
+                  </p>
+                </div>
+              )}
 
               <button
                 onClick={handleDelete}
