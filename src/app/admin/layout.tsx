@@ -16,25 +16,6 @@ export default function AdminLayout({
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
 
-  // DIRECT: No loading checks, just redirect
-  useEffect(() => {
-    console.log('🔒 Admin layout auth check:', user?.user_name, user?.role);
-    
-    if (!user) {
-      console.log('🚫 No user, redirect to login');
-      router.push('/login');
-      return;
-    }
-    
-    if (user.role !== 'admin') {
-      console.log('🚫 Not admin, redirect to pemilik');
-      router.push('/pemilik/dashboard');
-      return;
-    }
-    
-    console.log('✅ Admin access granted');
-  }, [user, router]);
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);

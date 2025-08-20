@@ -16,25 +16,6 @@ export default function PemilikLayout({
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
 
-  // DIRECT: No loading checks, just redirect
-  useEffect(() => {
-    console.log('🔒 Pemilik layout auth check:', user?.user_name, user?.role);
-    
-    if (!user) {
-      console.log('🚫 No user, redirect to login');
-      router.push('/login');
-      return;
-    }
-    
-    if (user.role !== 'user') {
-      console.log('🚫 Not user, redirect to admin');
-      router.push('/admin/dashboard');
-      return;
-    }
-    
-    console.log('✅ User access granted');
-  }, [user, router]);
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);

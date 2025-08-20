@@ -90,7 +90,7 @@ export default function AddKosPage() {
     setShowLocationPicker(false);
   };
 
-  // ...existing handlers for fasilitas, harga, images remain the same...
+  // Fasilitas handlers
   const handleFasilitasChange = (fasilitasId: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
@@ -100,6 +100,7 @@ export default function AddKosPage() {
     }));
   };
 
+  // Harga handlers
   const handleHargaChange = (index: number, field: keyof HargaKos, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -179,7 +180,6 @@ export default function AddKosPage() {
     }
   };
 
-  // ...existing handleSubmit remains the same...
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -379,7 +379,7 @@ export default function AddKosPage() {
           </div>
         </div>
 
-        {/* UPDATED - Location Picker Section */}
+        {/* Location Picker Section */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Lokasi di Peta
@@ -467,7 +467,7 @@ export default function AddKosPage() {
             </div>
           )}
 
-          {/* Manual Coordinate Input - Updated */}
+          {/* Manual Coordinate Input */}
           <div className="mt-4">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Atau Masukkan Koordinat Manual (Opsional)
@@ -506,7 +506,174 @@ export default function AddKosPage() {
           </div>
         </div>
 
-        {/* Rules & Notes - NO CHANGE */}
+        {/* ✅ PRICING SECTION */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Harga Kos
+          </h2>
+          <div className="space-y-4">
+            {formData.harga.map((harga, index) => (
+              <div key={index} className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Tipe Durasi
+                    </label>
+                    <select
+                      value={harga.tipe_durasi}
+                      onChange={(e) => handleHargaChange(index, 'tipe_durasi', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                    >
+                      <option value="Harian">Harian</option>
+                      <option value="Mingguan">Mingguan</option>
+                      <option value="Bulanan">Bulanan</option>
+                      <option value="Tahunan">Tahunan</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Harga (Rp)
+                    </label>
+                    <input
+                      type="text"
+                      value={formatCurrency(harga.harga)}
+                      onChange={(e) => handleHargaCurrencyChange(index, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-600 dark:text-white"
+                      placeholder="0"
+                    />
+                  </div>
+                  
+                  <div className="flex items-end">
+                    {formData.harga.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeHargaRow(index)}
+                        className="w-full px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            <button
+              type="button"
+              onClick={addHargaRow}
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Tambah Harga
+            </button>
+          </div>
+        </div>
+
+        {/* ✅ IMAGES SECTION */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Foto Kos
+          </h2>
+          
+          {/* Image Upload Area */}
+          <div 
+            className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors"
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnter={(e) => e.preventDefault()}
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            <label htmlFor="image-upload" className="cursor-pointer">
+              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Upload Foto Kos
+              </p>
+              <p className="text-gray-600 dark:text-gray-400">
+                Drag & drop atau klik untuk memilih foto (Maksimal 10 foto)
+              </p>
+            </label>
+          </div>
+
+          {/* Selected Images Preview */}
+          {selectedImages.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                Foto Terpilih ({selectedImages.length}/10)
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {selectedImages.map((file, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={URL.createObjectURL(file)}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSelectedImage(index)}
+                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                      {file.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ✅ FASILITAS SECTION */}
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Fasilitas Kos
+          </h2>
+          
+          {fasilitasLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Memuat fasilitas...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {fasilitas.map((fas) => (
+                <div key={fas.fasilitas_id} className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`fasilitas-${fas.fasilitas_id}`}
+                    checked={formData.fasilitas_ids.includes(fas.fasilitas_id)}
+                    onChange={(e) => handleFasilitasChange(fas.fasilitas_id, e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label 
+                    htmlFor={`fasilitas-${fas.fasilitas_id}`} 
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    {fas.fasilitas_nama}
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Rules & Notes */}
         <div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
             Aturan & Catatan
@@ -555,9 +722,6 @@ export default function AddKosPage() {
             </div>
           </div>
         </div>
-
-        {/* Rest of the form (Pricing, Images, Fasilitas) - NO CHANGE */}
-        {/* ... Copy the rest from your existing add page ... */}
 
         {/* Submit Button */}
         <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
