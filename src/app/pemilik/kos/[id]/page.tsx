@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // 1. Import useCallback
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image'; // 2. Import Next.js Image component
 import { useAuth } from '@/context/AuthContext';
 import { KosService } from '@/lib/kosService';
-import { Kos } from '@/types/database';
+import { Kos, HargaKos } from '@/types/database'; // 3. Import HargaKos type
 import MapDisplay from '@/components/maps/MapDisplay';
 
 export default function KosDetailPage() {
@@ -17,40 +18,43 @@ export default function KosDetailPage() {
 
   const kosId = params.id as string;
 
-  useEffect(() => {
-    if (kosId) {
-      fetchKosDetail();
-    }
-  }, [kosId]);
-
-  const fetchKosDetail = async () => {
+  // 4. Wrap fetch function in useCallback for stable reference
+  const fetchKosDetail = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error } = await KosService.getKosById(kosId);
+      const { data, error: fetchError } = await KosService.getKosById(kosId);
       
-      if (error) {
-        setError(error);
+      if (fetchError) {
+        setError(fetchError);
       } else {
         setKos(data);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // 5. Use 'unknown' for type-safe error handling
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [kosId]);
 
-  // REMOVED handleStatusChange - Users can't change status anymore
+  // 6. Add fetchKosDetail to the dependency array
+  useEffect(() => {
+    if (kosId) {
+      fetchKosDetail();
+    }
+  }, [kosId, fetchKosDetail]);
 
-  // NEW - Handle availability toggle only
   const handleAvailabilityChange = async () => {
     if (!kos) return;
 
     setAvailabilityLoading(true);
     try {
-      const { success, error } = await KosService.updateKosAvailability(
+      const { success, error: updateError } = await KosService.updateKosAvailability(
         kos.kos_id, 
         !kos.kos_avail
       );
@@ -59,33 +63,12 @@ export default function KosDetailPage() {
         setKos(prev => prev ? { ...prev, kos_avail: !prev.kos_avail } : null);
         alert(`Ketersediaan berhasil diubah menjadi ${!kos.kos_avail ? 'tersedia' : 'penuh'}`);
       } else {
-        alert(`Error: ${error}`);
+        alert(`Error: ${updateError}`);
       }
-    } catch (err) {
+    } catch { // 7. Remove unused 'err' variable
       alert('Terjadi kesalahan saat mengubah ketersediaan');
     } finally {
       setAvailabilityLoading(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!kos) return;
-
-    if (!confirm(`Apakah Anda yakin ingin menghapus kos "${kos.kos_nama}"?`)) {
-      return;
-    }
-
-    try {
-      const { success, error } = await KosService.deleteKos(kos.kos_id);
-      
-      if (success) {
-        alert('Kos berhasil dihapus!');
-        router.push('/pemilik/kos');
-      } else {
-        alert(`Error: ${error}`);
-      }
-    } catch (err) {
-      alert('Terjadi kesalahan saat menghapus kos');
     }
   };
 
@@ -123,7 +106,8 @@ export default function KosDetailPage() {
     );
   };
 
-  const formatPrice = (harga: any[]) => {
+  // 9. Provide a specific type for the 'harga' parameter
+  const formatPrice = (harga: HargaKos[]) => {
     if (!harga || harga.length === 0) return [];
     
     return harga.map(h => ({
@@ -175,6 +159,30 @@ export default function KosDetailPage() {
     );
   }
 
+  const handleDelete = async () => {
+    if (!kos) return;
+
+    const isConfirmed = window.confirm(
+      'Apakah Anda yakin ingin menghapus kos ini? Tindakan ini tidak dapat dibatalkan.'
+    );
+
+    if (!isConfirmed) return;
+
+    try {
+      const { success, error } = await KosService.deleteKos(kos.kos_id);
+      
+      if (success) {
+        alert('Kos berhasil dihapus');
+        router.push('/pemilik/kos'); // Redirect to kos list
+      } else {
+        alert(`Gagal menghapus kos: ${error}`);
+      }
+    } catch (err) {
+      alert('Terjadi kesalahan saat menghapus kos');
+      console.error('Delete error:', err);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -219,7 +227,7 @@ export default function KosDetailPage() {
                 Kos Ditolak
               </h3>
               <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                Kos ini ditolak oleh admin. Edit kos untuk mengajukan review ulang dan status akan otomatis berubah menjadi "Menunggu Review".
+                Kos ini ditolak oleh admin. Edit kos untuk mengajukan review ulang dan status akan otomatis berubah menjadi &ldquo;Menunggu Review&rdquo;.
               </p>
             </div>
           </div>
@@ -246,9 +254,7 @@ export default function KosDetailPage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Images */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Foto Kos
@@ -256,11 +262,15 @@ export default function KosDetailPage() {
             {kos.images && kos.images.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {kos.images.map((image, index) => (
-                  <div key={image.id} className="relative">
-                    <img
+                  // 10. Add 'relative' for Next.js Image fill property
+                  <div key={image.id} className="relative w-full h-48 rounded-lg overflow-hidden">
+                    {/* 11. Replace <img> with optimized <Image> component */}
+                    <Image
                       src={image.url_foto}
                       alt={`${kos.kos_nama} - ${index + 1}`}
-                      className="w-full h-48 object-cover rounded-lg"
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     />
                   </div>
                 ))}

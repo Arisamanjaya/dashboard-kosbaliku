@@ -1,8 +1,8 @@
 'use client';
-import { useAuth } from '@/context/AuthContext';
+// import { useAuth } from '@/context/AuthContext';
+// import { useRouter } from 'next/navigation';
 import { useSidebar } from '@/context/SidebarContext';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import AppHeader from '@/layout/AppHeader';
 import AppSidebar from '@/layout/AppSidebar';
 
@@ -11,9 +11,9 @@ export default function PemilikLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useAuth();
+  // const { user } = useAuth();
+  // const router = useRouter();
   const { isExpanded } = useSidebar();
-  const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {

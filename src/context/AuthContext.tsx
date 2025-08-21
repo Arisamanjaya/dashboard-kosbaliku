@@ -5,10 +5,10 @@ import { AuthUser } from '@/types/auth';
 
 interface AuthContextType {
   user: AuthUser | null;
-  loading: boolean; // ADD BACK
+  loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  checkAuth: () => Promise<void>; // ADD BACK
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,9 +23,8 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(false); // ADD BACK minimal loading
+  const [loading, setLoading] = useState(false);
 
-  // Check session once on mount
   useEffect(() => {
     checkSession();
   }, []);
@@ -46,12 +45,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('✅ Session restored for:', userData.user_name);
         }
       }
-    } catch (error) {
+    } catch { // ✅ REFACTOR 1: Remove unused 'error' variable
       console.log('No session found');
     }
   };
 
-  // ADD checkAuth function back
   const checkAuth = async () => {
     console.log('🔄 Manual auth check...');
     await checkSession();
@@ -59,7 +57,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     try {
-      setLoading(true); // Set loading during login
+      setLoading(true);
       
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
@@ -87,9 +85,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setLoading(false);
       return { success: false, error: 'User not found' };
-    } catch (error: any) {
+    } catch (error: unknown) { // ✅ REFACTOR 2: Use 'unknown' for safer error handling
       setLoading(false);
-      return { success: false, error: error.message };
+      if (error instanceof Error) {
+        return { success: false, error: error.message };
+      }
+      return { success: false, error: 'An unknown error occurred' };
     }
   };
 

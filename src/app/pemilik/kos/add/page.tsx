@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Import ini sekarang akan digunakan
 import { useAuth } from '@/context/AuthContext';
 import { useFasilitas } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
@@ -14,9 +15,8 @@ export default function AddKosPage() {
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedImages, setSelectedImages] = useState<File[]>([]); // Store selected images
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
 
-  // NEW - Location state
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
@@ -37,13 +37,11 @@ export default function AddKosPage() {
     ],
   });
 
-  // Format number to Indonesian currency display
   const formatCurrency = (value: number): string => {
     if (!value) return '';
     return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
-  // Parse currency display back to number
   const parseCurrency = (value: string): number => {
     return parseInt(value.replace(/\./g, '')) || 0;
   };
@@ -61,7 +59,6 @@ export default function AddKosPage() {
     }
   };
 
-  // NEW - Handle location selection
   const handleLocationSelect = (location: LocationData) => {
     setSelectedLocation(location);
     setFormData(prev => ({
@@ -70,7 +67,6 @@ export default function AddKosPage() {
       kos_lat: location.lat,
     }));
     
-    // Optional: Update address if user wants
     if (location.address && !formData.kos_alamat.trim()) {
       setFormData(prev => ({
         ...prev,
@@ -79,7 +75,6 @@ export default function AddKosPage() {
     }
   };
 
-  // NEW - Clear location
   const handleClearLocation = () => {
     setSelectedLocation(null);
     setFormData(prev => ({
@@ -90,7 +85,6 @@ export default function AddKosPage() {
     setShowLocationPicker(false);
   };
 
-  // Fasilitas handlers
   const handleFasilitasChange = (fasilitasId: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
@@ -100,8 +94,8 @@ export default function AddKosPage() {
     }));
   };
 
-  // Harga handlers
-  const handleHargaChange = (index: number, field: keyof HargaKos, value: any) => {
+  // 2. Give 'value' a specific type instead of 'any'
+  const handleHargaChange = (index: number, field: keyof HargaKos, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       harga: prev.harga.map((h, i) => 
@@ -110,7 +104,6 @@ export default function AddKosPage() {
     }));
   };
 
-  // Handle currency input for price
   const handleHargaCurrencyChange = (index: number, displayValue: string) => {
     const numericValue = parseCurrency(displayValue);
     handleHargaChange(index, 'harga', numericValue);
@@ -215,46 +208,38 @@ export default function AddKosPage() {
     setError('');
 
     try {
-      console.log('🚀 Submitting kos data:', formData);
-      console.log('📸 With images:', selectedImages.length, 'files');
+      const { data: createdKos, error: createError } = await KosService.createKos(formData, user.user_id);
       
-      // Step 1: Create kos
-      const { data, error } = await KosService.createKos(formData, user.user_id);
-      
-      if (error) {
-        console.error('❌ Create error:', error);
-        setError(error);
+      if (createError) {
+        setError(createError);
         return;
       }
-
-      console.log('✅ Kos created:', data);
       
-      // Step 2: Upload images if any selected
-      if (selectedImages.length > 0 && data) {
-        console.log('📸 Uploading images...');
-        const { data: imageData, error: imageError } = await KosService.uploadKosImages(
-          data.kos_id, 
+      if (selectedImages.length > 0 && createdKos) {
+        // 3. Remove unused 'imageData' variable
+        const { error: imageError } = await KosService.uploadKosImages(
+          createdKos.kos_id, 
           selectedImages, 
           user.user_id
         );
         
         if (imageError) {
-          console.error('⚠️ Image upload error:', imageError);
           alert(`Kos berhasil dibuat, tapi ada error saat upload gambar: ${imageError}`);
         } else {
-          console.log('✅ Images uploaded successfully');
           alert('Kos dan gambar berhasil dibuat!');
         }
       } else {
         alert('Kos berhasil dibuat!');
       }
       
-      // Redirect to kos list
       router.push('/pemilik/kos');
       
-    } catch (err: any) {
-      console.error('💥 Submit exception:', err);
-      setError(err.message);
+    } catch (err: unknown) { // 4. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred during submission.');
+      }
     } finally {
       setLoading(false);
     }
@@ -608,17 +593,21 @@ export default function AddKosPage() {
 
           {/* Selected Images Preview */}
           {selectedImages.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Foto Terpilih ({selectedImages.length}/10)
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {selectedImages.map((file, index) => (
-                  <div key={index} className="relative group">
-                    <img
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+              Foto Terpilih ({selectedImages.length}/10)
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {selectedImages.map((file, index) => (
+                <div key={index}>
+                  <div className="relative group w-full h-32 border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
+                    {/* ✅ REFACTOR: Ganti <img> dengan komponen <Image> */}
+                    <Image
                       src={URL.createObjectURL(file)}
                       alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
+                      fill
+                      style={{ objectFit: 'cover' }}
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                     />
                     <button
                       type="button"
@@ -629,13 +618,14 @@ export default function AddKosPage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
-                      {file.name}
-                    </p>
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 truncate">
+                    {file.name}
+                  </p>
+                </div>
+              ))}
             </div>
+          </div>
           )}
         </div>
 

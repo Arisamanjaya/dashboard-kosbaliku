@@ -1,12 +1,14 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useFasilitas } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
-import { Kos, KosFormData, HargaKos, LocationData } from '@/types/database';
+import { Kos, KosFormData, HargaKos, LocationData, Fasilitas, KosImage } from '@/types/database'; 
 import KosImageUpload from '@/components/kos/KosImageUpload';
 import LocationPicker from '@/components/maps/LocationPicker';
+
+// ✅ REFACTOR: Hapus useState dari sini. Pindahkan ke dalam komponen.
 
 export default function EditKosPage() {
   const router = useRouter();
@@ -19,10 +21,10 @@ export default function EditKosPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [images, setImages] = useState<any[]>([]);
+  // ✅ REFACTOR: Deklarasi state yang benar ada di sini. Hapus duplikat.
+  const [images, setImages] = useState<KosImage[]>([]);
   const [imagesLoading, setImagesLoading] = useState(true);
 
-  // NEW - Location state
   const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
@@ -43,36 +45,28 @@ export default function EditKosPage() {
     harga: [],
   });
 
-  // Format number to Indonesian currency display
   const formatCurrency = (value: number): string => {
     if (!value) return '';
     return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
-  // Parse currency display back to number
   const parseCurrency = (value: string): number => {
     return parseInt(value.replace(/\./g, '')) || 0;
   };
 
-  useEffect(() => {
-    if (kosId) {
-      fetchKosDetail();
-    }
-  }, [kosId]);
-
-  const fetchKosDetail = async () => {
+  // 4. Bungkus fungsi fetch dengan useCallback
+  const fetchKosDetail = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error } = await KosService.getKosById(kosId);
+      const { data, error: fetchError } = await KosService.getKosById(kosId);
       
-      if (error) {
-        setError(error);
+      if (fetchError) {
+        setError(fetchError);
       } else if (data) {
         setKos(data);
         
-        // Populate form data
         setFormData({
           kos_nama: data.kos_nama,
           kos_alamat: data.kos_alamat,
@@ -84,11 +78,11 @@ export default function EditKosPage() {
           kos_rule: data.kos_rule,
           kos_note: data.kos_note,
           kos_avail: data.kos_avail,
-          fasilitas_ids: data.fasilitas?.map((f: any) => f.fasilitas.fasilitas_id) || [],
+          // 5. Berikan tipe spesifik pada parameter map
+          fasilitas_ids: data.fasilitas?.map((f: Fasilitas) => f.fasilitas_id) || [],
           harga: data.harga || [],
         });
 
-        // NEW - Set initial location if exists
         if (data.kos_lat && data.kos_lng) {
           setSelectedLocation({
             lat: data.kos_lat,
@@ -97,12 +91,23 @@ export default function EditKosPage() {
           });
         }
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // 6. Gunakan `unknown` untuk error handling yang lebih aman
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Terjadi kesalahan yang tidak diketahui');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [kosId]);
+
+  // 7. Panggil fungsi yang sudah di-memoize di useEffect
+  useEffect(() => {
+    if (kosId) {
+      fetchKosDetail();
+    }
+  }, [kosId, fetchKosDetail]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -117,7 +122,6 @@ export default function EditKosPage() {
     }
   };
 
-  // NEW - Handle location selection
   const handleLocationSelect = (location: LocationData) => {
     setSelectedLocation(location);
     setFormData(prev => ({
@@ -126,7 +130,6 @@ export default function EditKosPage() {
       kos_lat: location.lat,
     }));
     
-    // Optional: Update address if user wants
     if (location.address && !formData.kos_alamat.trim()) {
       setFormData(prev => ({
         ...prev,
@@ -135,7 +138,6 @@ export default function EditKosPage() {
     }
   };
 
-  // NEW - Clear location
   const handleClearLocation = () => {
     setSelectedLocation(null);
     setFormData(prev => ({
@@ -155,7 +157,8 @@ export default function EditKosPage() {
     }));
   };
 
-  const handleHargaChange = (index: number, field: keyof HargaKos, value: any) => {
+  // 8. Beri tipe yang lebih spesifik untuk `value`
+  const handleHargaChange = (index: number, field: keyof HargaKos, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       harga: prev.harga.map((h, i) => 
@@ -164,7 +167,6 @@ export default function EditKosPage() {
     }));
   };
 
-  // Handle currency input for price - SAME AS ADD PAGE
   const handleHargaCurrencyChange = (index: number, displayValue: string) => {
     const numericValue = parseCurrency(displayValue);
     handleHargaChange(index, 'harga', numericValue);
@@ -184,11 +186,11 @@ export default function EditKosPage() {
     }));
   };
 
-  // Add function to fetch images
-  const fetchImages = async () => {
+  // 9. Bungkus fungsi fetchImages dengan useCallback
+  const fetchImages = useCallback(async () => {
     setImagesLoading(true);
     try {
-      const { data, error } = await KosService.getKosImages(kosId);
+      const { data } = await KosService.getKosImages(kosId);
       if (data) {
         setImages(data);
       }
@@ -197,14 +199,13 @@ export default function EditKosPage() {
     } finally {
       setImagesLoading(false);
     }
-  };
+  }, [kosId, setImages, setImagesLoading]); // Tambahkan setImages dan setImagesLoading ke dependensi
 
-  // Add useEffect to fetch images
   useEffect(() => {
     if (kosId) {
       fetchImages();
     }
-  }, [kosId]);
+  }, [kosId, fetchImages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,7 +215,6 @@ export default function EditKosPage() {
       return;
     }
 
-    // Validation - SAME AS ADD PAGE
     if (!formData.kos_nama.trim()) {
       setError('Nama kos harus diisi');
       return;
@@ -230,7 +230,6 @@ export default function EditKosPage() {
       return;
     }
 
-    // Validate harga
     const validHarga = formData.harga.filter(h => h.harga > 0);
     if (validHarga.length === 0) {
       setError('Minimal satu harga harus diisi');
@@ -241,16 +240,21 @@ export default function EditKosPage() {
     setError('');
 
     try {
-      const { data, error } = await KosService.updateKos(kosId, formData);
+      // 12. Hapus variabel `data` yang tidak terpakai
+      const { error: updateError } = await KosService.updateKos(kosId, formData);
       
-      if (error) {
-        setError(error);
+      if (updateError) {
+        setError(updateError);
       } else {
         alert('Kos berhasil diperbarui!');
         router.push('/pemilik/kos');
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // 13. Gunakan `unknown` lagi
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Terjadi kesalahan saat menyimpan');
+      }
     } finally {
       setSaving(false);
     }

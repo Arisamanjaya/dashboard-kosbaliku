@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Kos, Fasilitas } from '@/types/database';
 import { KosService } from '@/lib/kosService';
 
@@ -7,10 +7,12 @@ export const useKosByOwner = (pemilikId: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchKos = async () => {
+  // ✅ REFACTOR: Wrap fetchKos in useCallback
+  const fetchKos = useCallback(async () => {
     setLoading(true);
     setError(null);
     
+    // pemilikId is a dependency, so we can use it here
     const { data, error: err } = await KosService.getKosByOwner(pemilikId);
     
     if (err) {
@@ -20,13 +22,14 @@ export const useKosByOwner = (pemilikId: string) => {
     }
     
     setLoading(false);
-  };
+  }, [pemilikId]); // Add pemilikId as a dependency for useCallback
 
   useEffect(() => {
     if (pemilikId) {
       fetchKos();
     }
-  }, [pemilikId]);
+    // The dependency array is now stable because fetchKos is memoized
+  }, [fetchKos, pemilikId]);
 
   const refetch = () => {
     fetchKos();
@@ -55,7 +58,11 @@ export const useKosStats = (pemilikId: string) => {
       if (err) {
         setError(err);
       } else {
-        setStats(data || { total: 0, active: 0, pending: 0, inactive: 0 });
+        const mappedData = data ? {
+          ...data,
+          inactive: data.rejected,
+        } : { total: 0, active: 0, pending: 0, inactive: 0 };
+        setStats(mappedData);
       }
       
       setLoading(false);

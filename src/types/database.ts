@@ -9,7 +9,6 @@ export interface User {
   created_at: string;
 }
 
-// Fix enum values to match database
 export type KosTipe = 'Putra' | 'Putri' | 'Campur';
 
 export interface Kos {
@@ -20,7 +19,7 @@ export interface Kos {
   kos_lng?: number | null;
   kos_lat?: number | null;
   pemilik_id: string;
-  kos_tipe: KosTipe; // Use correct enum
+  kos_tipe: KosTipe;
   kos_premium: boolean;
   kos_rule: string;
   kos_note: string;
@@ -29,11 +28,12 @@ export interface Kos {
   status: 'active' | 'rejected' | 'pending';
   // Relations
   pemilik?: User;
-  fasilitas?: any[];
+  fasilitas?: Fasilitas[]; // ✅ REFACTOR: Use the specific Fasilitas type
   harga?: HargaKos[];
   images?: KosImage[];
+  // This is for the junction table data, often not needed on the final Kos object
+  kos_fasilitas?: KosFasilitas[];
 }
-
 
 export interface KosFormData {
   kos_nama: string;
@@ -41,7 +41,7 @@ export interface KosFormData {
   kos_lokasi: string;
   kos_lng?: number;
   kos_lat?: number;
-  kos_tipe: KosTipe; // Use correct enum
+  kos_tipe: KosTipe;
   kos_premium: boolean;
   kos_rule: string;
   kos_note: string;
@@ -50,7 +50,6 @@ export interface KosFormData {
   harga: HargaKos[];
 }
 
-// NEW - Location selection interface
 export interface LocationData {
   lat: number;
   lng: number;

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // 1. Import useCallback
 import { AdminService, UserWithStats, CreateUserData, UpdateUserData } from '@/lib/adminService';
 
 interface UserManagementProps {
@@ -15,70 +15,70 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
   const [totalPages, setTotalPages] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
   
-  // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
   
-  // Form states
-  const [createForm, setCreateForm] = useState<CreateUserData>({
-    user_name: '',
-    user_email: '',
-    user_phone: '',
-    role: 'user',
-    password: ''
-  });
-  
-  const [editForm, setEditForm] = useState<UpdateUserData>({
-    user_name: '',
-    user_email: '',
-    user_phone: '',
-    role: 'user'
-  });
-
+  const [createForm, setCreateForm] = useState<CreateUserData>(
+    {
+      user_name: '',
+      user_email: '',
+      user_phone: '',
+      role: 'user',
+      password: ''
+    });
+  const [editForm, setEditForm] = useState<UpdateUserData>(
+    {
+      user_name: '',
+      user_email: '',
+      user_phone: '',
+      role: 'user',
+    }
+  );
   const [actionLoading, setActionLoading] = useState(false);
 
   const itemsPerPage = 10;
 
-  useEffect(() => {
-    fetchUsers();
-  }, [currentPage, searchTerm]);
-
-  const fetchUsers = async () => {
+  // 2. Wrap the data fetching function in useCallback
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error, total, totalPages: pages } = await AdminService.getAllUsers(
+      const { data, error: fetchError, total, totalPages: pages } = await AdminService.getAllUsers(
         currentPage,
         itemsPerPage,
         searchTerm
       );
 
-      if (error) {
-        setError(error);
+      if (fetchError) {
+        setError(fetchError);
       } else {
         setUsers(data || []);
         setTotalUsers(total);
         setTotalPages(pages || 1);
       }
-    } catch (err: any) {
+    } catch (err: unknown) { // 3. Use 'unknown' for safer error handling
       setError('Failed to fetch users');
       console.error('Fetch users error:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, searchTerm]); // Dependencies for useCallback
+
+  // 4. Use the memoized function in useEffect's dependency array
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    setCurrentPage(1); // Reset to first page when searching
+    setCurrentPage(1);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!createForm.user_name.trim() || !createForm.user_email.trim() || !createForm.password.trim()) {
       setError('Name, email, and password are required');
       return;
@@ -88,23 +88,18 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
     setError('');
 
     try {
-      const { data, error } = await AdminService.createUser(createForm);
+      // 5. Remove unused 'data' variable
+      const { error: createError } = await AdminService.createUser(createForm);
 
-      if (error) {
-        setError(error);
+      if (createError) {
+        setError(createError);
       } else {
         alert('User created successfully!');
         setShowCreateModal(false);
-        setCreateForm({
-          user_name: '',
-          user_email: '',
-          user_phone: '',
-          role: 'user',
-          password: ''
-        });
-        fetchUsers(); // Refresh list
+        setCreateForm({ user_name: '', user_email: '', user_phone: '', role: 'user', password: '' });
+        fetchUsers();
       }
-    } catch (err: any) {
+    } catch (err: unknown) { // 3. Use 'unknown'
       setError('Failed to create user');
       console.error('Create user error:', err);
     } finally {
@@ -114,7 +109,6 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
 
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!selectedUser || !editForm.user_name?.trim() || !editForm.user_email?.trim()) {
       setError('Name and email are required');
       return;
@@ -124,17 +118,18 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
     setError('');
 
     try {
-      const { data, error } = await AdminService.updateUser(selectedUser.user_id, editForm);
+      // 5. Remove unused 'data' variable
+      const { error: updateError } = await AdminService.updateUser(selectedUser.user_id, editForm);
 
-      if (error) {
-        setError(error);
+      if (updateError) {
+        setError(updateError);
       } else {
         alert('User updated successfully!');
         setShowEditModal(false);
         setSelectedUser(null);
-        fetchUsers(); // Refresh list
+        fetchUsers();
       }
-    } catch (err: any) {
+    } catch (err: unknown) { // 3. Use 'unknown'
       setError('Failed to update user');
       console.error('Update user error:', err);
     } finally {
@@ -149,17 +144,18 @@ export default function UserManagement({ className = '' }: UserManagementProps) 
     setError('');
 
     try {
-      const { data, error } = await AdminService.deleteUser(selectedUser.user_id);
+      // 5. Remove unused 'data' variable
+      const { error: deleteError } = await AdminService.deleteUser(selectedUser.user_id);
 
-      if (error) {
-        setError(error);
+      if (deleteError) {
+        setError(deleteError);
       } else {
         alert('User deleted successfully!');
         setShowDeleteModal(false);
         setSelectedUser(null);
-        fetchUsers(); // Refresh list
+        fetchUsers();
       }
-    } catch (err: any) {
+    } catch (err: unknown) { // 3. Use 'unknown'
       setError('Failed to delete user');
       console.error('Delete user error:', err);
     } finally {

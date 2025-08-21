@@ -1,17 +1,24 @@
 'use client';
 import React, { useState, useRef } from 'react';
+import Image from 'next/image'; // 1. Import Next.js Image component
 import { KosService } from '@/lib/kosService';
 import { useAuth } from '@/context/AuthContext';
 
+// 2. Define a specific type for the image object
+interface KosImage {
+  id: string;
+  url_foto: string;
+}
+
 interface KosImageUploadProps {
   kosId: string;
-  existingImages?: any[];
+  existingImages?: KosImage[]; // Use the specific type
   onImagesUpdated?: () => void;
   maxImages?: number;
 }
 
 export default function KosImageUpload({ 
-  kosId, 
+  kosId,
   existingImages = [], 
   onImagesUpdated,
   maxImages = 10 
@@ -29,18 +36,13 @@ export default function KosImageUpload({
     }
 
     const fileArray = Array.from(files);
-    
-    // Validate file types
-    const validFiles = fileArray.filter(file => 
-      file.type.startsWith('image/')
-    );
+    const validFiles = fileArray.filter(file => file.type.startsWith('image/'));
 
     if (validFiles.length === 0) {
       alert('Harap pilih file gambar yang valid');
       return;
     }
 
-    // Check max images limit
     if (existingImages.length + validFiles.length > maxImages) {
       alert(`Maksimal ${maxImages} gambar. Anda sudah memiliki ${existingImages.length} gambar.`);
       return;
@@ -49,8 +51,8 @@ export default function KosImageUpload({
     setUploading(true);
     
     try {
-      console.log('🚀 Starting upload for user:', user.user_id);
-      const { data, error } = await KosService.uploadKosImages(kosId, validFiles, user.user_id);
+      // 3. Remove unused 'data' variable
+      const { error } = await KosService.uploadKosImages(kosId, validFiles, user.user_id);
       
       if (error) {
         alert(`Error uploading images: ${error}`);
@@ -58,8 +60,12 @@ export default function KosImageUpload({
         alert('Gambar berhasil diupload!');
         onImagesUpdated?.();
       }
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
+    } catch (err: unknown) { // 4. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        alert(`Error: ${err.message}`);
+      } else {
+        alert('An unknown error occurred during upload.');
+      }
     } finally {
       setUploading(false);
     }
@@ -68,7 +74,6 @@ export default function KosImageUpload({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragActive(false);
-    
     if (e.dataTransfer.files) {
       handleFiles(e.dataTransfer.files);
     }
@@ -88,20 +93,22 @@ export default function KosImageUpload({
     setDeleting(imageId);
 
     try {
-      console.log('🗑️ Deleting image:', imageId, imageUrl);
       const { success, error } = await KosService.deleteKosImage(imageId, imageUrl);
       
       if (error) {
         console.error('❌ Delete error:', error);
         alert(`Error deleting image: ${error}`);
       } else if (success) {
-        console.log('✅ Image deleted successfully');
         alert('Gambar berhasil dihapus!');
         onImagesUpdated?.();
       }
-    } catch (err: any) {
+    } catch (err: unknown) { // 4. Use 'unknown' for safer error handling
       console.error('💥 Delete exception:', err);
-      alert(`Error: ${err.message}`);
+      if (err instanceof Error) {
+        alert(`Error: ${err.message}`);
+      } else {
+        alert('An unknown error occurred during deletion.');
+      }
     } finally {
       setDeleting(null);
     }
@@ -176,11 +183,14 @@ export default function KosImageUpload({
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {existingImages.map((image, index) => (
-              <div key={image.id} className="relative group">
-                <img
+              <div key={image.id} className="relative group w-full h-32 rounded-lg overflow-hidden">
+                {/* 5. Replace <img> with optimized <Image> component */}
+                <Image
                   src={image.url_foto}
                   alt={`Kos image ${index + 1}`}
-                  className="w-full h-32 object-cover rounded-lg"
+                  fill
+                  style={{ objectFit: 'cover' }}
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                 />
                 
                 {/* Delete Button */}

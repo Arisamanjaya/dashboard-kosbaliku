@@ -9,6 +9,17 @@ const nextConfig: NextConfig = {
     });
     return config;
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'qjhkjpgbidjkywtgvmig.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/kos-images/**',
+      },
+      // Anda bisa menambahkan domain lain di sini jika perlu
+    ],
+  },
 };
 
 export default nextConfig;

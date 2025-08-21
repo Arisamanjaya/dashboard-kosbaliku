@@ -14,14 +14,14 @@ export default function LogoutButton() {
       console.log('🚪 Starting logout process...');
       
       await logout();
-      
-      console.log('✅ Logout successful, redirecting to login...');
-      router.push('/login');
-    } catch (error: any) {
-      console.error('❌ Logout error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+  
+        console.log('✅ Logout successful, redirecting to login...');
+        router.push('/login');
+      } catch (error: unknown) { // ✅ REFACTOR: Use 'unknown' for safer error handling
+        console.error('❌ Logout error:', error);
+      } finally {
+        setIsLoading(false);
+      }
   };
 
   return (

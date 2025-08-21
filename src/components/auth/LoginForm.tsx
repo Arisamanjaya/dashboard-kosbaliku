@@ -21,7 +21,6 @@ export default function LoginForm() {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
     if (error) setError('');
   };
 
@@ -37,16 +36,19 @@ export default function LoginForm() {
     setError('');
 
     try {
-      const { success, error } = await login(formData.email, formData.password);
+      const { success, error: loginError } = await login(formData.email, formData.password);
       
       if (success) {
-        // Redirect will be handled by layout based on user role
-        router.push('/admin/dashboard'); // Default redirect, will be corrected by layout
+        router.push('/admin/dashboard');
       } else {
-        setError(error || 'Login failed');
+        setError(loginError || 'Login failed');
       }
-    } catch (err: any) {
-      setError('An unexpected error occurred');
+    } catch (err: unknown) { // ✅ REFACTOR 1: Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        setError('An unexpected error occurred: ' + err.message);
+      } else {
+        setError('An unexpected error occurred');
+      }
       console.error('Login error:', err);
     } finally {
       setLoading(false);
@@ -257,7 +259,8 @@ export default function LoginForm() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Don't have an account?{' '}
+            {/* ✅ REFACTOR 2: Escape the apostrophe */}
+            Don&apos;t have an account?{' '}
             <a href="#" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
               Contact administrator
             </a>

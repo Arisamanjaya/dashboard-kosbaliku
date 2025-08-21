@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react'; // 1. Import useCallback
 import { Loader } from '@googlemaps/js-api-loader';
 import { GOOGLE_MAPS_CONFIG, DEFAULT_MAP_ZOOM } from '@/lib/googleMaps';
 
@@ -24,6 +24,34 @@ export default function MapDisplay({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 2. Wrap the initializeMap function in useCallback
+  // This memoizes the function so it doesn't get recreated on every render
+  const initializeMap = useCallback(() => {
+    if (!mapRef.current) return;
+
+    const location = { lat, lng };
+    
+    const map = new google.maps.Map(mapRef.current, {
+      center: location,
+      zoom,
+      mapTypeId: google.maps.MapTypeId.ROADMAP,
+      streetViewControl: false,
+      fullscreenControl: true,
+      mapTypeControl: false,
+      zoomControl: true,
+      scrollwheel: true,
+    });
+
+    new google.maps.Marker({
+      position: location,
+      map,
+      title,
+    });
+
+    setLoading(false);
+  }, [lat, lng, title, zoom]); // Its own dependencies
+
+  // 3. Move useEffect to the top level, before any conditional returns
   useEffect(() => {
     if (!GOOGLE_MAPS_CONFIG.apiKey) {
       setError('Google Maps API key not configured');
@@ -44,38 +72,13 @@ export default function MapDisplay({
           initializeMap();
         }
       })
-      .catch((error) => {
-        console.error('Error loading Google Maps:', error);
+      .catch((err) => {
+        console.error('Error loading Google Maps:', err);
         setError('Failed to load Google Maps');
         setLoading(false);
       });
-  }, [lat, lng]);
-
-  const initializeMap = () => {
-    if (!mapRef.current) return;
-
-    const location = { lat, lng };
-    
-    const map = new google.maps.Map(mapRef.current, {
-      center: location,
-      zoom,
-      mapTypeId: google.maps.MapTypeId.ROADMAP,
-      streetViewControl: false,
-      fullscreenControl: true,
-      mapTypeControl: false,
-      zoomControl: true,
-      scrollwheel: true,
-    });
-
-    // Add marker
-    new google.maps.Marker({
-      position: location,
-      map,
-      title,
-    });
-
-    setLoading(false);
-  };
+  // The dependency array is correct now that initializeMap is memoized
+  }, [initializeMap]);
 
   if (error) {
     return (

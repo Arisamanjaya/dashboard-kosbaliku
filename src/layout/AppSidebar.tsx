@@ -65,7 +65,6 @@ export default function AppSidebar() {
     isMobileOpen, 
     toggleMobileSidebar, 
     setActiveItem,
-    activeItem 
   } = useSidebar();
   const pathname = usePathname();
 
@@ -88,7 +87,7 @@ export default function AppSidebar() {
     if (isMobileOpen && isMobile) {
       toggleMobileSidebar();
     }
-  }, [pathname]);
+  }, [pathname, isMobileOpen, isMobile, toggleMobileSidebar]);
 
   // Set active item based on current path
   useEffect(() => {

@@ -2,6 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useKosStats } from '@/hooks/useKos';
+import Link from 'next/link';
 
 export default function PemilikDashboardPage() {
   const { user } = useAuth();
@@ -95,7 +96,7 @@ export default function PemilikDashboardPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <a 
+          <Link
             href="/pemilik/kos/add" 
             className="group p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
@@ -110,9 +111,9 @@ export default function PemilikDashboardPage() {
                 Daftarkan properti kos baru Anda
               </p>
             </div>
-          </a>
+          </Link>
           
-          <a 
+          <Link 
             href="/pemilik/kos" 
             className="group p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
@@ -127,7 +128,7 @@ export default function PemilikDashboardPage() {
                 Lihat dan kelola semua kos Anda
               </p>
             </div>
-          </a>
+          </Link>
         </div>
       </div>
     </div>

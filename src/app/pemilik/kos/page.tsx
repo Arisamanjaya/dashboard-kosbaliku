@@ -3,7 +3,14 @@ import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useKosByOwner } from '@/hooks/useKos';
 import { KosService } from '@/lib/kosService';
-import { Kos } from '@/types/database';
+import Link from 'next/link';
+import Image from 'next/image'; // 1. Import Next.js Image component
+
+// 2. Define a specific type for the price object to replace 'any'
+type Harga = {
+  tipe_durasi: string;
+  harga: number;
+};
 
 export default function PemilikKosPage() {
   const { user } = useAuth();
@@ -12,41 +19,40 @@ export default function PemilikKosPage() {
   const [availabilityLoading, setAvailabilityLoading] = useState<string | null>(null);
 
   const handleDeleteKos = async (kosId: string, kosNama: string) => {
-    if (!confirm(`Apakah Anda yakin ingin menghapus kos "${kosNama}"?`)) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus kos '${kosNama}'?`)) { // Safely use single quotes
       return;
     }
 
     setDeleteLoading(kosId);
     try {
-      const { success, error } = await KosService.deleteKos(kosId);
+      const { success, error: deleteError } = await KosService.deleteKos(kosId);
       
       if (success) {
         alert('Kos berhasil dihapus!');
         refetch();
       } else {
-        alert(`Error: ${error}`);
+        alert(`Error: ${deleteError}`);
       }
-    } catch (err) {
+    } catch { // 3. Remove unused 'err' variable
       alert('Terjadi kesalahan saat menghapus kos');
     } finally {
       setDeleteLoading(null);
     }
   };
 
-  // NEW - Handle availability toggle (not status)
   const handleToggleAvailability = async (kosId: string, currentAvailability: boolean) => {
     setAvailabilityLoading(kosId);
     
     try {
-      const { success, error } = await KosService.updateKosAvailability(kosId, !currentAvailability);
+      const { success, error: updateError } = await KosService.updateKosAvailability(kosId, !currentAvailability);
       
       if (success) {
         alert(`Ketersediaan kos berhasil ${!currentAvailability ? 'diaktifkan' : 'dinonaktifkan'}`);
         refetch();
       } else {
-        alert(`Error: ${error}`);
+        alert(`Error: ${updateError}`);
       }
-    } catch (err) {
+    } catch { // 3. Remove unused 'err' variable
       alert('Terjadi kesalahan saat mengubah ketersediaan');
     } finally {
       setAvailabilityLoading(null);
@@ -100,7 +106,7 @@ export default function PemilikKosPage() {
             Kelola semua properti kos Anda
           </p>
         </div>
-        <a
+        <Link
           href="/pemilik/kos/add"
           className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
@@ -108,7 +114,7 @@ export default function PemilikKosPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
           Tambah Kos Baru
-        </a>
+        </Link>
       </div>
 
       {/* Loading, Error, Empty states - NO CHANGE */}
@@ -136,7 +142,7 @@ export default function PemilikKosPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-6">
             Mulai dengan menambahkan kos pertama Anda
           </p>
-          <a
+          <Link
             href="/pemilik/kos/add"
             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
@@ -144,7 +150,7 @@ export default function PemilikKosPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
             Tambah Kos Pertama
-          </a>
+          </Link>
         </div>
       )}
 
@@ -156,10 +162,13 @@ export default function PemilikKosPage() {
               {/* Image */}
               <div className="h-48 bg-gray-200 dark:bg-gray-700 relative">
                 {kosItem.images && kosItem.images.length > 0 ? (
-                  <img
+                  // 4. Replace <img> with optimized <Image> component
+                  <Image
                     src={kosItem.images[0].url_foto}
                     alt={kosItem.kos_nama}
-                    className="w-full h-full object-cover"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -259,14 +268,17 @@ export default function PemilikKosPage() {
     </div>
   );
 
-  function formatPrice(harga: any[]) {
+  // 2. Use the specific 'Harga' type for the parameter
+  function formatPrice(harga: Harga[]) {
     if (!harga || harga.length === 0) return 'Harga belum diset';
     
-    const bulanan = harga.find(h => h.tipe_durasi === 'bulanan');
+    // Convert tipe_durasi to lowercase for consistent matching
+    const bulanan = harga.find(h => h.tipe_durasi.toLowerCase() === 'bulanan');
     if (bulanan) {
       return `Rp ${bulanan.harga.toLocaleString('id-ID')}/bulan`;
     }
     
+    // Fallback to the first price if 'bulanan' is not found
     return `Rp ${harga[0].harga.toLocaleString('id-ID')}/${harga[0].tipe_durasi}`;
   }
 }

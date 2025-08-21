@@ -1,8 +1,18 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // 1. Import useCallback
 import { AdminService } from '@/lib/adminService';
 
-// Create proper interface that doesn't conflict with existing Kos
+// 2. Define specific types to replace 'any'
+interface Harga {
+  harga: number;
+  tipe_durasi: string;
+}
+
+interface KosImage {
+  // Assuming a basic structure, adjust if needed
+  url_foto: string;
+}
+
 interface KosWithAdminDetails {
   kos_id: string;
   kos_nama: string;
@@ -24,8 +34,8 @@ interface KosWithAdminDetails {
     user_name: string;
     user_email: string;
   };
-  harga: any[];
-  images: any[];
+  harga: Harga[];
+  images: KosImage[];
 }
 
 export default function KosStatusManager() {
@@ -41,31 +51,36 @@ export default function KosStatusManager() {
   const [totalCount, setTotalCount] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchKos();
-  }, [filters]);
-
-  const fetchKos = async () => {
+  // 3. Wrap the data fetching function in useCallback
+  const fetchKos = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error, count } = await AdminService.getAllKos(filters);
+      const { data, error: fetchError, count } = await AdminService.getAllKos(filters);
       
-      if (error) {
-        setError(error);
+      if (fetchError) {
+        setError(fetchError);
       } else {
         setKos(data || []);
         setTotalCount(count || 0);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // 4. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred while fetching data.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
-  // SIMPLIFIED - Direct status update without modal
+  // 5. Use the memoized function in useEffect's dependency array
+  useEffect(() => {
+    fetchKos();
+  }, [fetchKos]);
+
   const handleStatusUpdate = async (kosId: string, newStatus: 'active' | 'rejected') => {
     const action = newStatus === 'active' ? 'approve' : 'reject';
     
@@ -76,16 +91,20 @@ export default function KosStatusManager() {
     setActionLoading(kosId);
     
     try {
-      const { error } = await AdminService.updateKosStatus(kosId, newStatus);
+      const { error: updateError } = await AdminService.updateKosStatus(kosId, newStatus);
       
-      if (error) {
-        alert('Error: ' + error);
+      if (updateError) {
+        alert('Error: ' + updateError);
       } else {
         alert(`Kos berhasil ${newStatus === 'active' ? 'disetujui' : 'ditolak'}!`);
         fetchKos(); // Refresh data
       }
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) { // 4. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        alert('Error: ' + err.message);
+      } else {
+        alert('An unknown error occurred during the update.');
+      }
     } finally {
       setActionLoading(null);
     }

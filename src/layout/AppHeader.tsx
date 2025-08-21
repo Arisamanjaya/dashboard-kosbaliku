@@ -7,7 +7,7 @@ import { ThemeToggleButton } from '@/components/common/ThemeToggleButton';
 
 export default function AppHeader() {
   const { user } = useAuth();
-  const { toggleSidebar, toggleMobileSidebar, isExpanded, isMobileOpen } = useSidebar();
+  const { toggleSidebar, toggleMobileSidebar, isExpanded } = useSidebar();
 
   // Detect if mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;

@@ -1,8 +1,25 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // 1. Import useCallback
 import { AdminService }  from '@/lib/adminService';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image'; // 2. Import Next.js Image component
 import MapDisplay from '@/components/maps/MapDisplay';
+
+// 3. Define specific types to replace 'any'
+interface Harga {
+  harga: number;
+  tipe_durasi: string;
+}
+
+interface KosImage {
+  url_foto: string;
+  // Add other properties if they exist, e.g., id: string;
+}
+
+interface Fasilitas {
+  fasilitas_nama: string;
+  // Add other properties if they exist, e.g., fasilitas_id: string;
+}
 
 interface KosDetailWithAdmin {
   kos_id: string;
@@ -26,9 +43,9 @@ interface KosDetailWithAdmin {
     user_email: string;
     user_phone?: string;
   };
-  harga: any[];
-  images: any[];
-  fasilitas: any[];
+  harga: Harga[];
+  images: KosImage[];
+  fasilitas: Fasilitas[];
 }
 
 export default function AdminKosDetailPage() {
@@ -42,30 +59,36 @@ export default function AdminKosDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  useEffect(() => {
-    if (kosId) {
-      fetchKosDetail();
-    }
-  }, [kosId]);
-
-  const fetchKosDetail = async () => {
+  // 4. Wrap the data fetching function in useCallback
+  const fetchKosDetail = useCallback(async () => {
     setLoading(true);
     setError('');
 
     try {
-      const { data, error } = await AdminService.getKosById(kosId);
+      const { data, error: fetchError } = await AdminService.getKosById(kosId);
       
-      if (error) {
-        setError(error);
+      if (fetchError) {
+        setError(fetchError);
       } else {
         setKos(data);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // 5. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unknown error occurred while fetching data.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [kosId]);
+
+  // 6. Add the memoized function to the dependency array
+  useEffect(() => {
+    if (kosId) {
+      fetchKosDetail();
+    }
+  }, [kosId, fetchKosDetail]);
 
   const handleStatusUpdate = async (newStatus: 'active' | 'rejected') => {
     const action = newStatus === 'active' ? 'approve' : 'reject';
@@ -77,16 +100,20 @@ export default function AdminKosDetailPage() {
     setActionLoading(true);
     
     try {
-      const { error } = await AdminService.updateKosStatus(kosId, newStatus);
+      const { error: updateError } = await AdminService.updateKosStatus(kosId, newStatus);
       
-      if (error) {
-        alert('Error: ' + error);
+      if (updateError) {
+        alert('Error: ' + updateError);
       } else {
         alert(`Kos berhasil ${newStatus === 'active' ? 'disetujui' : 'ditolak'}!`);
         fetchKosDetail(); // Refresh data
       }
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) { // 5. Use 'unknown' for safer error handling
+      if (err instanceof Error) {
+        alert('Error: ' + err.message);
+      } else {
+        alert('An unknown error occurred during the update.');
+      }
     } finally {
       setActionLoading(false);
     }
@@ -241,24 +268,25 @@ export default function AdminKosDetailPage() {
 
       {/* Main Layout - 2 Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Image Carousel */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Foto Kos ({kos.images?.length || 0})
+                Foto Kos ({kos?.images?.length || 0})
               </h2>
             </div>
             
-            {kos.images && kos.images.length > 0 ? (
+            {kos?.images && kos.images.length > 0 ? (
               <div className="relative">
-                {/* Main Image */}
                 <div className="aspect-[16/10] relative">
-                  <img
+                  {/* 7. Replace <img> with Next.js <Image> component */}
+                  <Image
                     src={kos.images[currentImageIndex]?.url_foto}
                     alt={`${kos.kos_nama} - ${currentImageIndex + 1}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    style={{ objectFit: 'cover' }}
+                    sizes="(max-width: 1024px) 100vw, 67vw"
+                    priority={true} // Prioritize loading the main image
                   />
                   
                   {/* Image Navigation */}
@@ -297,16 +325,19 @@ export default function AdminKosDetailPage() {
                         <button
                           key={index}
                           onClick={() => setCurrentImageIndex(index)}
-                          className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                          className={`relative flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
                             index === currentImageIndex 
                               ? 'border-blue-500' 
                               : 'border-gray-300 dark:border-gray-600'
                           }`}
                         >
-                          <img
+                          {/* 7. Replace <img> with Next.js <Image> for thumbnails */}
+                          <Image
                             src={image.url_foto}
                             alt={`Thumbnail ${index + 1}`}
-                            className="w-full h-full object-cover"
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="64px"
                           />
                         </button>
                       ))}
