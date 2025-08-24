@@ -3,22 +3,36 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
+// ✅ Optimize for Vercel deployment
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false
-  }
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+  // ✅ Connection optimization for Vercel
+  db: {
+    schema: 'public',
+  },
+  global: {
+    headers: {
+      'x-client-info': 'supabase-js-web',
+    },
+  },
+  // ✅ Reduce timeout for faster failures
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+  },
 });
 
-// Debug log in development
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  console.log('🔗 Supabase initialized:', {
-    url: supabaseUrl,
-    hasAnonKey: !!supabaseAnonKey
+// ✅ Add connection warming for Vercel
+if (typeof window !== 'undefined') {
+  // Warm up connection on client side
+  Promise.resolve(supabase.from('kos').select('kos_id').limit(1)).then(() => {
+    console.log('🔥 Supabase connection warmed up');
+  }).catch(() => {
+    // Silent fail for warmup
   });
 }

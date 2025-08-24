@@ -2,24 +2,55 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  webpack(config) {
-    config.module.rules.push({
-      test: /\.svg$/,
-      use: ["@svgr/webpack"],
-    });
-    return config;
-  },
+  // ✅ Enable compression
+  compress: true,
+  
+  // ✅ Optimize images
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'qjhkjpgbidjkywtgvmig.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/kos-images/**',
-      },
-      // Anda bisa menambahkan domain lain di sini jika perlu
+    domains: ['qjhkjpgbidjkywtgvmig.supabase.co'], // Your Supabase domain
+    formats: ['image/webp', 'image/avif'],
+  },
+  
+  // ✅ Enable SWC minification
+  swcMinify: true,
+  
+  // ✅ Reduce bundle size
+  experimental: {
+    optimizeCss: true,
+    optimizePackageImports: [
+      '@supabase/supabase-js',
+      'react-icons',
+      'lucide-react'
     ],
   },
+  
+  // ✅ Webpack optimizations
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
+    
+    // Bundle analyzer
+    if (process.env.ANALYZE) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+      config.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          openAnalyzer: false,
+        })
+      );
+    }
+    
+    return config;
+  },
+  
+  // ✅ Output standalone for better performance
+  output: 'standalone',
 };
 
 export default nextConfig;
