@@ -72,7 +72,7 @@ export default function AuthForm() {
       const { success, error } = await login(loginData.email, loginData.password);
       
       if (success) {
-        router.push('/admin/dashboard');
+        router.push('/');
       } else {
         setError(error || 'Login failed');
       }
