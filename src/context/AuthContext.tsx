@@ -1,13 +1,22 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import { AuthUser } from '@/types/database';
+
+interface AuthUser {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_phone?: string;
+  user_ig?: string;
+  role: 'user' | 'admin';
+  created_at: string;
+}
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  register: (userData: RegisterData) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean; message?: string }>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -18,7 +27,7 @@ interface RegisterData {
   user_password: string;
   user_phone: string;
   user_ig?: string;
-  role?: 'user';
+  role?: 'user' | 'admin';
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,23 +46,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     checkSession();
+    
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.email);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        await fetchUserData(session.user.email!);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const fetchUserData = async (email: string) => {
+    try {
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('user_email', email)
+        .single();
+      
+      if (error) {
+        console.error('❌ Error fetching user data:', error);
+        return;
+      }
+
+      if (userData) {
+        setUser(userData);
+        console.log('✅ User data loaded:', userData.user_name, 'Role:', userData.role);
+      }
+    } catch (error) {
+      console.error('❌ Error in fetchUserData:', error);
+    }
+  };
 
   const checkSession = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      if (session?.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('user_email', session.user.email)
-          .single();
-        
-        if (userData) {
-          setUser(userData);
-          console.log('✅ Session restored for:', userData.user_name);
-        }
+      if (session?.user?.email) {
+        await fetchUserData(session.user.email);
       }
     } catch (error) {
       console.log('No session found:', error);
@@ -68,35 +103,106 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     try {
       setLoading(true);
+      console.log('🔐 Attempting login for:', email);
       
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
+      // ✅ STEP 1: Check if user exists in our database first
+      const { data: dbUser, error: dbError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('user_email', email)
+        .single();
+
+      if (dbError || !dbUser) {
+        console.error('❌ User not found in database:', dbError);
+        setLoading(false);
+        return { success: false, error: 'User not found. Please register first.' };
+      }
+
+      console.log('✅ User found in database:', dbUser.user_name, 'Role:', dbUser.role);
+
+      // ✅ STEP 2: Try Supabase Auth login
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) {
+      if (authError) {
+        console.error('❌ Supabase auth error:', authError);
+        
+        // ✅ STEP 3: If auth fails but user exists in DB, try to create auth user
+        if (authError.message.includes('Invalid login credentials') || 
+            authError.message.includes('User not found')) {
+          
+          console.log('🔧 Creating missing auth user...');
+          
+          try {
+            // ✅ FIX: Handle empty user_ig properly
+            const userIg = dbUser.user_ig && dbUser.user_ig.trim() ? dbUser.user_ig.trim() : null;
+            
+            // Create auth user with same password
+            const { data: newAuthData, error: createError } = await supabase.auth.signUp({
+              email: email,
+              password: password, // Use the password they're trying to login with
+              options: {
+                emailRedirectTo: `${window.location.origin}/login`,
+                data: {
+                  user_name: dbUser.user_name,
+                  role: dbUser.role,
+                  user_ig: userIg
+                }
+              }
+            });
+
+            if (createError) {
+              console.error('❌ Failed to create auth user:', createError);
+              setLoading(false);
+              return { success: false, error: 'Authentication setup failed. Please contact admin.' };
+            }
+
+            if (newAuthData.user) {
+              // Update database with auth user ID
+              await supabase
+                .from('users')
+                .update({ user_id: newAuthData.user.id })
+                .eq('user_email', email);
+
+              console.log('✅ Auth user created and linked');
+              
+              // If auto-confirmed, set user and return success
+              if (newAuthData.session) {
+                setUser(dbUser);
+                setLoading(false);
+                return { success: true };
+              } else {
+                setLoading(false);
+                return { 
+                  success: false, 
+                  error: 'Account created but needs email confirmation. Please check your email.' 
+                };
+              }
+            }
+          } catch (createAuthError) {
+            console.error('❌ Error creating auth user:', createAuthError);
+            setLoading(false);
+            return { success: false, error: 'Failed to setup authentication. Please try again.' };
+          }
+        }
+        
         setLoading(false);
-        return { success: false, error: error.message };
+        return { success: false, error: authError.message };
       }
 
       if (authData.user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('user_email', email)
-          .single();
-
-        if (userData) {
-          setUser(userData);
-          setLoading(false);
-          return { success: true };
-        }
+        setUser(dbUser);
+        setLoading(false);
+        return { success: true };
       }
 
       setLoading(false);
-      return { success: false, error: 'User not found' };
+      return { success: false, error: 'Login failed' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      console.error('❌ Login error:', error);
       setLoading(false);
       return { success: false, error: errorMessage };
     }
@@ -105,14 +211,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (userData: RegisterData) => {
     try {
       setLoading(true);
+      console.log('📝 Registering user:', userData.user_email);
       
-      // 1. Create auth user
+      // ✅ STEP 1: Check if user already exists in database
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('user_email')
+        .eq('user_email', userData.user_email)
+        .single();
+
+      if (existingUser) {
+        setLoading(false);
+        return { success: false, error: 'User with this email already exists' };
+      }
+
+      // ✅ FIX: Sanitize user_ig - set to null if empty
+      const sanitizedUserIg = userData.user_ig && userData.user_ig.trim() 
+        ? userData.user_ig.trim() 
+        : null;
+
+      console.log('📝 Sanitized user_ig:', sanitizedUserIg);
+
+      // ✅ STEP 2: Create auth user first
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userData.user_email,
         password: userData.user_password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login`,
+          data: {
+            user_name: userData.user_name,
+            user_phone: userData.user_phone,
+            user_ig: sanitizedUserIg,
+            role: userData.role || 'user',
+          }
+        }
       });
 
       if (authError) {
+        console.error('❌ Auth registration error:', authError);
         setLoading(false);
         return { success: false, error: authError.message };
       }
@@ -122,7 +258,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return { success: false, error: 'Failed to create auth user' };
       }
 
-      // 2. Create user record in database
+      console.log('✅ Auth user created:', authData.user.id);
+
+      // ✅ STEP 3: Create user record in database with sanitized data
       const { data: dbUser, error: dbError } = await supabase
         .from('users')
         .insert([
@@ -130,9 +268,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             user_id: authData.user.id,
             user_name: userData.user_name,
             user_email: userData.user_email,
-            user_password: userData.user_password, // In real app, this should be hashed
+            user_password: userData.user_password, // Store for reference
             user_phone: userData.user_phone,
-            user_ig: userData.user_ig || '',
+            user_ig: sanitizedUserIg, // ✅ Use sanitized value (null if empty)
             role: userData.role || 'user',
             created_at: new Date().toISOString(),
           }
@@ -141,20 +279,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         .single();
 
       if (dbError) {
+        console.error('❌ Database user creation error:', dbError);
+        
+        // Cleanup auth user if DB insert fails
+        try {
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          console.log('🧹 Cleaned up auth user after DB failure');
+        } catch (cleanupError) {
+          console.error('Failed to cleanup auth user:', cleanupError);
+        }
+        
         setLoading(false);
         return { success: false, error: dbError.message };
       }
 
-      if (dbUser) {
+      console.log('✅ Database user created:', dbUser.user_name, 'IG:', dbUser.user_ig || 'null');
+
+      // Check if user was auto-confirmed
+      const isConfirmed = authData.user.email_confirmed_at !== null || authData.session !== null;
+
+      if (isConfirmed && dbUser) {
         setUser(dbUser);
-        setLoading(false);
-        return { success: true };
       }
 
       setLoading(false);
-      return { success: false, error: 'Failed to create user record' };
+      return { 
+        success: true, 
+        needsConfirmation: !isConfirmed,
+        message: isConfirmed ? 
+          'Account created successfully!' : 
+          'Please check your email to confirm your account.'
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      console.error('❌ Registration error:', error);
       setLoading(false);
       return { success: false, error: errorMessage };
     }

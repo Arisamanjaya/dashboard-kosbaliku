@@ -15,7 +15,8 @@ export interface UserWithStats {
 export interface CreateUserData {
   user_name: string;
   user_email: string;
-  user_phone?: string;
+  user_phone: string;
+  user_ig?: string; // ✅ Make optional
   role: 'admin' | 'user' | 'pemilik';
   password: string;
 }
@@ -24,6 +25,7 @@ export interface UpdateUserData {
   user_name?: string;
   user_email?: string;
   user_phone?: string;
+  user_ig?: string; // ✅ Optional and can be null
   role?: 'admin' | 'user' | 'pemilik';
 }
 
