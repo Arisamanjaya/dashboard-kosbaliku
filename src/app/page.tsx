@@ -11,7 +11,7 @@ export default function HomePage() {
     if (user) {
       if (user.role === 'admin') {
         router.push('/admin/dashboard');
-      } else {
+      } if (user.role === 'user') {
         router.push('/pemilik/dashboard');
       }
     } else {

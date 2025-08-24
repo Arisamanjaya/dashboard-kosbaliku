@@ -11,6 +11,16 @@ export interface User {
 
 export type KosTipe = 'Putra' | 'Putri' | 'Campur';
 
+export interface AuthUser {
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  user_phone?: string;
+  user_ig?: string;
+  role: 'user' | 'admin';
+  created_at: string;
+}
+
 export interface Kos {
   kos_id: string;
   kos_nama: string;
