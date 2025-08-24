@@ -1,5 +1,5 @@
 'use client';
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 interface AuthUser {
@@ -44,24 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    checkSession();
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 Auth state changed:', event, session?.user?.email);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        await fetchUserData(session.user.email!);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchUserData = async (email: string) => {
+  const fetchUserData = useCallback(async (email: string) => {
     try {
       const { data: userData, error } = await supabase
         .from('users')
@@ -73,7 +56,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error('❌ Error fetching user data:', error);
         return;
       }
-
       if (userData) {
         setUser(userData);
         console.log('✅ User data loaded:', userData.user_name, 'Role:', userData.role);
@@ -81,19 +63,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('❌ Error in fetchUserData:', error);
     }
-  };
+  }, [setUser]); // Dependensi 'setUser' adalah fungsi yang stabil dari React
 
-  const checkSession = async () => {
+  // ✅ REFACTOR 2: Bungkus checkSession dengan useCallback
+  const checkSession = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (session?.user?.email) {
         await fetchUserData(session.user.email);
       }
     } catch (error) {
       console.log('No session found:', error);
     }
-  };
+  }, [fetchUserData]); // checkSession bergantung pada fetchUserData
+
+  useEffect(() => {
+    checkSession();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session?.user?.email);
+      
+      if (event === 'SIGNED_IN' && session?.user?.email) {
+        await fetchUserData(session.user.email); // Gunakan fetchUserData yang di-memoize
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [checkSession, fetchUserData]);
 
   const checkAuth = async () => {
     console.log('🔄 Manual auth check...');

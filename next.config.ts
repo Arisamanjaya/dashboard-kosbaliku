@@ -1,41 +1,42 @@
-import type { NextConfig } from "next";
+import { NextConfig } from 'next';
 
+/** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  /* config options here */
-  // ✅ Enable compression
-  compress: true,
-  
-  // ✅ Optimize images
+  // ✅ Konfigurasi gambar modern dan lebih aman menggunakan remotePatterns
   images: {
-    domains: ['qjhkjpgbidjkywtgvmig.supabase.co'], // Your Supabase domain
-    formats: ['image/webp', 'image/avif'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'qjhkjpgbidjkywtgvmig.supabase.co', // Hostname Supabase Anda
+        port: '',
+        pathname: '/storage/v1/object/public/**', // Lebih aman, bisa dibatasi per bucket
+      },
+    ],
+    formats: ['image/webp', 'image/avif'], // Ini sudah bagus
   },
-  
-  // ✅ Enable SWC minification
-  swcMinify: true,
-  
-  // ✅ Reduce bundle size
+
+  // ✅ Opsi ini sudah menjadi default di Next.js modern, jadi tidak perlu ditulis eksplisit
+  // swcMinify: true,
+
   experimental: {
-    optimizeCss: true,
+    // optimizeCss sudah dioptimalkan secara default di versi Next.js yang lebih baru
     optimizePackageImports: [
       '@supabase/supabase-js',
       'react-icons',
-      'lucide-react'
+      'lucide-react',
     ],
   },
-  
-  // ✅ Webpack optimizations
+
+  // ✅ Konfigurasi webpack Anda sudah bagus, terutama untuk fallback dan analyzer
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
-        ...config.resolve.fallback,
         fs: false,
         net: false,
         tls: false,
       };
     }
-    
-    // Bundle analyzer
+
     if (process.env.ANALYZE) {
       const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
       config.plugins.push(
@@ -45,11 +46,11 @@ const nextConfig: NextConfig = {
         })
       );
     }
-    
+
     return config;
   },
   
-  // ✅ Output standalone for better performance
+  // ✅ output: 'standalone' adalah praktik yang sangat baik untuk deployment Docker
   output: 'standalone',
 };
 
